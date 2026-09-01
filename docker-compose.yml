@@ -1,0 +1,14 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: arogyaconnect
+      POSTGRES_PASSWORD: arogyaconnect
+      POSTGRES_DB: arogyaconnect
+    ports:
+      - "5432:5432"
+    volumes:
+      - arogya_pg:/var/lib/postgresql/data
+
+volumes:
+  arogya_pg:
