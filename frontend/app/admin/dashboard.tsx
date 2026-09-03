@@ -1,96 +1,76 @@
 import * as DocumentPicker from 'expo-document-picker';
-import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
 import {
-    Alert,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
+import { askGemini } from '../lib/gemini';
+import { supabase } from '../lib/supabase';
+
+// Strips ```json fences (Gemini sometimes wraps JSON in markdown) and parses safely.
+function safeParseJson(raw: string): any | null {
+  try {
+    const cleaned = raw.replace(/```json/gi, '').replace(/```/g, '').trim();
+    return JSON.parse(cleaned);
+  } catch {
+    return null;
+  }
+}
+
+type Assessment = {
+  urgency: 'critical' | 'moderate' | 'low';
+  reasoning: string;
+  recommended_action: string;
+};
 
 export default function AshaCompleteDashboard() {
+  const { ashaId } = useLocalSearchParams();
   const router = useRouter();
 
-  // Navigation tab state ('home', 'patients', 'triage', 'referrals', 'followups', 'documents')
+  // ============================================================
+  // ALL HOOKS DECLARED UP FRONT — none of these may sit below a
+  // conditional return, or React will throw "Rendered more hooks
+  // than during the previous render" once ashaData finishes loading.
+  // ============================================================
+
+  // Navigation tab state
   const [activeTab, setActiveTab] = useState<'home' | 'patients' | 'triage' | 'referrals' | 'followups' | 'documents'>('home');
 
   // ASHA Worker Profile State
-  const [ashaData] = useState({
-    name: 'Sunita',
-    subCenter: 'Village Sub-Center 3 (Bangalore Rural)',
-    governmentId: 'AS-KA-2026-8891',
-    offlinePendingCount: 3,
-  });
+  const [ashaData, setAshaData] = useState<any>(null);
 
-  // Master Patient & Triage Cases
-  const [patients, setPatients] = useState([
-    {
-      id: 'p-1',
-      name: 'Lakshmiamma',
-      age: 48,
-      gender: 'Female',
-      phone: '9876543210',
-      village: 'Ward 3',
-      abhaId: 'ABHA-9982-1029',
-      complaint: 'Severe dizziness',
-      duration: '3 days',
-      status: 'Verification Required',
-      priority: 'High Priority',
-      vitals: { temp: '', bp: '', spO2: '', pulse: '', rr: '', weight: '' },
-      triageFlags: { breathing: false, chestPain: false, bleeding: false, unconscious: false, dehydration: false, highFever: false },
-      ashaNotes: '',
-      attachedReport: 'LabReport_BloodTest.pdf',
-    },
-    {
-      id: 'p-2',
-      name: 'Ramesh Kumar',
-      age: 62,
-      gender: 'Male',
-      phone: '9123456780',
-      village: 'Ward 1',
-      abhaId: 'ABHA-4451-2093',
-      complaint: 'Persistent dry cough & breathlessness',
-      duration: '1 week',
-      status: 'Awaiting Doctor Review',
-      priority: 'URGENT',
-      vitals: { temp: '99.2', bp: '130/84', spO2: '95', pulse: '88', rr: '20', weight: '64' },
-      triageFlags: { breathing: true, chestPain: false, bleeding: false, unconscious: false, dehydration: false, highFever: false },
-      ashaNotes: 'History of chronic bronchitis. SpO2 borderline.',
-      attachedReport: null,
-    },
-    {
-      id: 'p-3',
-      name: 'Anita Devi',
-      age: 35,
-      gender: 'Female',
-      phone: '9988776655',
-      village: 'Ward 2',
-      abhaId: 'ABHA-1102-9981',
-      complaint: 'Post-natal routine follow-up',
-      duration: '1 day',
-      status: 'Follow-up Due Today',
-      priority: 'Normal',
-      vitals: { temp: '98.4', bp: '120/80', spO2: '98', pulse: '76', rr: '16', weight: '55' },
-      triageFlags: { breathing: false, chestPain: false, bleeding: false, unconscious: false, dehydration: false, highFever: false },
-      ashaNotes: 'Vitals stable. Recovery progressing as expected.',
-      attachedReport: null,
-    },
-  ]);
+  // Triage Cases State from Supabase
+  const [triageCases, setTriageCases] = useState<any[]>([]);
 
-  // Selected Patient for Active Verification / Vitals Entry
-  const [selectedPatientId, setSelectedPatientId] = useState<string | null>('p-1');
-  const activePatient = patients.find((p) => p.id === selectedPatientId) || patients[0];
+  // Currently selected Supabase triage case for detail/verification view
+  const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
+  const activeSupabaseCase = triageCases.find((c) => c.id === selectedCaseId) || triageCases[0];
 
-  // New Patient Registration Form State
-  const [regName, setRegName] = useState('');
-  const [regAge, setRegAge] = useState('');
-  const [regGender, setRegGender] = useState('Female');
-  const [regPhone, setRegPhone] = useState('');
-  const [regVillage, setRegVillage] = useState('');
-  const [regAbha, setRegAbha] = useState('');
+  const [geminiResponse, setGeminiResponse] = useState('');
+  const [loadingGemini, setLoadingGemini] = useState(false);
+
+  // Follow-up Q&A + risk assessment state
+  const [parsedQuestions, setParsedQuestions] = useState<string[]>([]);
+  const [answers, setAnswers] = useState<Record<number, string>>({});
+  const [assessment, setAssessment] = useState<Assessment | null>(null);
+  const [loadingAssessment, setLoadingAssessment] = useState(false);
+  const [priorityQueue, setPriorityQueue] = useState<any[]>([]);
+  const [loadingPriority, setLoadingPriority] = useState(false);
+
+  // New patient / triage case form
+  const [newPatientName, setNewPatientName] = useState('');
+  const [newPatientPhone, setNewPatientPhone] = useState('');
+  const [newPatientAge, setNewPatientAge] = useState('');
+  const [newPatientGender, setNewPatientGender] = useState('');
+  const [newCaseSymptoms, setNewCaseSymptoms] = useState('');
+  const [newCaseDuration, setNewCaseDuration] = useState('');
+  const [addingCase, setAddingCase] = useState(false);
 
   // Referral Management State
   const [referrals, setReferrals] = useState([
@@ -100,69 +80,347 @@ export default function AshaCompleteDashboard() {
   // Document Upload State
   const [capturedDocs, setCapturedDocs] = useState<string[]>(['Prescription_Aug2026.pdf']);
 
-  // Handlers for Vitals & Triage Updates
-  const handleUpdateActiveVitals = (key: string, value: string) => {
-    setPatients((prev) =>
-      prev.map((p) => (p.id === activePatient.id ? { ...p, vitals: { ...p.vitals, [key]: value } } : p))
-    );
-  };
+  // ------------------------------------------------------------
+  // ALL useEffect calls also live up here, before any early return
+  // ------------------------------------------------------------
 
-  const handleToggleTriageFlag = (flagKey: string) => {
-    setPatients((prev) =>
-      prev.map((p) =>
-        p.id === activePatient.id
-          ? { ...p, triageFlags: { ...p.triageFlags, [flagKey]: !p.triageFlags[flagKey as keyof typeof p.triageFlags] } }
-          : p
-      )
-    );
-  };
+  useEffect(() => {
+    const loadAshaData = async () => {
+      if (!ashaId) return;
 
-  const handleUpdateNotes = (notes: string) => {
-    setPatients((prev) =>
-      prev.map((p) => (p.id === activePatient.id ? { ...p, ashaNotes: notes } : p))
-    );
-  };
+      const { data, error } = await supabase
+        .from('asha_workers')
+        .select('*')
+        .eq('id', ashaId)
+        .single();
 
-  // Submit Verified Case to Doctor Queue
-  const handleSubmitVerifiedCase = () => {
-    setPatients((prev) =>
-      prev.map((p) => (p.id === activePatient.id ? { ...p, status: 'Awaiting Doctor Review' } : p))
-    );
-    Alert.alert('Case Verified & Dispatched', `${activePatient.name}'s verified vitals and notes have been sent to the doctor's queue.`);
-  };
+      if (error) {
+        console.log('Error loading ASHA data:', error);
+        return;
+      }
 
-  // Register New Patient
-  const handleRegisterPatient = () => {
-    if (!regName || !regPhone) {
-      Alert.alert('Missing Details', 'Please provide at least the patient name and phone number.');
+      console.log('Loaded ASHA data:', data);
+      setAshaData(data);
+    };
+
+    loadAshaData();
+  }, [ashaId]);
+
+  // Reset the Q&A flow whenever the selected case changes, so answers from
+  // one patient don't bleed into another.
+  useEffect(() => {
+    setGeminiResponse('');
+    setParsedQuestions([]);
+    setAnswers({});
+    setAssessment(null);
+  }, [selectedCaseId]);
+
+  // Fetch Live Triage Cases from Supabase
+  useEffect(() => {
+    const loadTriageCases = async () => {
+      const { data, error } = await supabase
+        .from('triage_cases')
+        .select(`
+          *,
+          patients (
+            name,
+            phone,
+            age,
+            gender,
+            known_conditions
+          ),
+          asha_workers (
+            full_name
+          )
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.log('Error loading triage cases:', error);
+        return;
+      }
+
+      setTriageCases(data || []);
+      if (data && data.length > 0 && !selectedCaseId) {
+        setSelectedCaseId(data[0].id);
+      }
+    };
+
+    loadTriageCases();
+  }, []);
+
+  // ============================================================
+  // Now it's safe to bail early — every hook above has already run
+  // on every render, so short-circuiting here doesn't change hook count.
+  // ============================================================
+  if (!ashaData) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <Text>Loading ASHA profile...</Text>
+      </View>
+    );
+  }
+
+  // Gemini Clinical Follow-Up Analyzer for Supabase Records
+  const testGeminiForCase = async (supabaseCase: any) => {
+    if (!supabaseCase) {
+      Alert.alert('No Case Selected', 'Please choose a patient case to analyze.');
       return;
     }
-    const newEntry = {
-      id: `p-${Date.now()}`,
-      name: regName,
-      age: parseInt(regAge) || 30,
-      gender: regGender,
-      phone: regPhone,
-      village: regVillage || 'Village Sub-Center 3',
-      abhaId: regAbha || `ABHA-${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(1000 + Math.random() * 9000)}`,
-      complaint: 'General Health Check / Walk-in',
-      duration: '1 day',
-      status: 'Verification Required',
-      priority: 'Normal',
-      vitals: { temp: '', bp: '', spO2: '', pulse: '', rr: '', weight: '' },
-      triageFlags: { breathing: false, chestPain: false, bleeding: false, unconscious: false, dehydration: false, highFever: false },
-      ashaNotes: '',
-      attachedReport: null,
-    };
-    setPatients((prev) => [newEntry, ...prev]);
-    setRegName('');
-    setRegAge('');
-    setRegPhone('');
-    setRegVillage('');
-    setRegAbha('');
-    Alert.alert('Patient Registered', 'Single source record created successfully and linked to ASHA queue.');
-    setActiveTab('triage');
-    setSelectedPatientId(newEntry.id);
+
+    try {
+      setLoadingGemini(true);
+      setGeminiResponse('Analyzing patient case with Gemini...');
+      setParsedQuestions([]);
+      setAnswers({});
+      setAssessment(null);
+
+      const casePayload = {
+        patient_name: supabaseCase.patients?.name || 'Unknown Patient',
+        age: supabaseCase.age,
+        gender: supabaseCase.gender,
+        known_conditions: supabaseCase.patients?.known_conditions || 'None listed',
+        symptoms: supabaseCase.symptoms,
+        symptom_duration: supabaseCase.symptom_duration,
+        vitals: {
+          temperature: `${supabaseCase.temperature}°C`,
+          spO2: `${supabaseCase.spo2}%`,
+          heart_rate: `${supabaseCase.heart_rate} bpm`,
+          blood_pressure: supabaseCase.blood_pressure,
+          respiratory_rate: `${supabaseCase.respiratory_rate} /min`,
+        },
+        status: supabaseCase.status,
+      };
+
+      const prompt = `
+You are an AI clinical triage assistant helping an ASHA worker.
+
+Analyze the following patient case fetched directly from the database.
+
+PATIENT CASE:
+${JSON.stringify(casePayload, null, 2)}
+
+Your job is NOT to diagnose the patient.
+
+
+Generate ONLY relevant follow-up questions based on the symptoms, vitals, age, gender, and medical history.
+
+Do not ask generic questions.
+
+Return ONLY valid JSON in this exact format:
+
+{
+  "questions": [
+    "question 1",
+    "question 2",
+    "question 3"
+  ]
+}
+
+If no additional questions are needed, return:
+
+{
+  "questions": []
+}
+`;
+
+      const answer = await askGemini(prompt);
+      console.log('GEMINI FOLLOW-UP QUESTIONS:', answer);
+      setGeminiResponse(answer);
+
+      const parsed = safeParseJson(answer);
+      if (parsed && Array.isArray(parsed.questions)) {
+        setParsedQuestions(parsed.questions);
+      } else {
+        setParsedQuestions([]);
+      }
+    } catch (error) {
+      console.log('GEMINI ERROR:', error);
+      setGeminiResponse(String(error));
+    } finally {
+      setLoadingGemini(false);
+    }
+  };
+
+  // Send the worker's answers back to Gemini and get a critical/moderate/low verdict
+  const getAssessment = async () => {
+    if (!activeSupabaseCase) return;
+
+    const unanswered = parsedQuestions.filter((_, i) => !answers[i]?.trim());
+    if (unanswered.length > 0) {
+      Alert.alert('Missing Answers', 'Please answer all follow-up questions before requesting an assessment.');
+      return;
+    }
+
+    try {
+      setLoadingAssessment(true);
+      setAssessment(null);
+
+      const qaPairs = parsedQuestions.map((q, i) => ({ question: q, answer: answers[i] }));
+
+      const casePayload = {
+        patient_name: activeSupabaseCase.patients?.name || 'Unknown Patient',
+        age: activeSupabaseCase.age,
+        gender: activeSupabaseCase.gender,
+        known_conditions: activeSupabaseCase.patients?.known_conditions || 'None listed',
+        symptoms: activeSupabaseCase.symptoms,
+        symptom_duration: activeSupabaseCase.symptom_duration,
+        vitals: {
+          temperature: `${activeSupabaseCase.temperature}°C`,
+          spO2: `${activeSupabaseCase.spo2}%`,
+          heart_rate: `${activeSupabaseCase.heart_rate} bpm`,
+          blood_pressure: activeSupabaseCase.blood_pressure,
+          respiratory_rate: `${activeSupabaseCase.respiratory_rate} /min`,
+        },
+      };
+
+      const prompt = `
+You are an AI clinical triage assistant helping an ASHA worker decide whether a patient case needs urgent escalation to a doctor.
+
+You are NOT diagnosing the patient. You are producing a triage risk level to help prioritize doctor review.
+
+PATIENT CASE:
+${JSON.stringify(casePayload, null, 2)}
+
+FOLLOW-UP QUESTIONS AND THE ASHA WORKER'S ANSWERS:
+${JSON.stringify(qaPairs, null, 2)}
+
+Based on all of this information, assess the urgency of this case.
+
+Return ONLY valid JSON in this exact format:
+
+{
+  "urgency": "critical" | "moderate" | "low",
+  "reasoning": "1-2 sentence explanation in plain language an ASHA worker can understand",
+  "recommended_action": "1 short sentence on what the ASHA worker should do next"
+}
+`;
+
+      const raw = await askGemini(prompt);
+      console.log('GEMINI ASSESSMENT:', raw);
+      const parsed = safeParseJson(raw);
+
+      if (!parsed || !parsed.urgency) {
+        throw new Error('Could not parse a valid assessment from Gemini. Try again.');
+      }
+
+      setAssessment(parsed);
+      const { error: saveError } = await supabase
+        .from('triage_cases')
+        .update({
+          ai_triage_level: parsed.urgency,
+          ai_urgency: parsed.urgency,
+          ai_recommended_action: parsed.recommended_action,
+          ai_followup_answers: qaPairs,
+        })
+        .eq('id', activeSupabaseCase.id);
+
+      if (saveError) {
+        console.log('Error saving AI assessment:', saveError);
+      }
+    } catch (error) {
+      Alert.alert('Assessment Failed', String(error));
+    } finally {
+      setLoadingAssessment(false);
+    }
+  };
+
+  const prioritizeCases = async () => {
+    try {
+      setLoadingPriority(true);
+
+      // Get all active cases
+      const { data, error } = await supabase
+        .from('triage_cases')
+        .select(`
+          *,
+          patients (
+            name
+          )
+        `)
+        .neq('status', 'Closed');
+
+      if (error) {
+        console.log('Error fetching cases:', error);
+        return;
+      }
+
+      if (!data || data.length === 0) {
+        setPriorityQueue([]);
+        return;
+      }
+
+      const prompt = `
+You are assisting a doctor in prioritizing rural healthcare cases.
+
+Review the following active triage cases and rank them from most urgent to least urgent.
+
+Do NOT diagnose patients.
+IMPORTANT: If a case has "ai_urgency": "critical" already set, treat it as a
+confirmed clinical verdict from a completed assessment and rank it at or near
+the top — do not downgrade it based on vitals alone. Cases without an
+ai_urgency value should be ranked using symptoms and vitals only.
+
+Use the available symptoms, vitals, AI assessment, and other information.
+
+Return ONLY valid JSON in this format:
+
+[
+  {
+    "case_id": "case id",
+    "priority": 1,
+    "urgency": "Emergency",
+    "reason": "short reason"
+  }
+]
+
+Cases:
+${JSON.stringify(data)}
+`;
+
+      const response = await askGemini(prompt);
+
+      const cleaned = response
+        .replace(/```json/g, '')
+        .replace(/```/g, '')
+        .trim();
+
+      const parsed = JSON.parse(cleaned);
+
+      setPriorityQueue(parsed);
+
+    } catch (error) {
+      console.log('Priority queue error:', error);
+    } finally {
+      setLoadingPriority(false);
+    }
+  };
+
+  // Submit Verified Case Status back to Supabase
+  const handleSubmitVerifiedCase = async () => {
+    if (!activeSupabaseCase) return;
+
+    const nextStatus = assessment?.urgency === 'critical'
+      ? 'Urgent - Doctor Review'
+      : 'Awaiting Doctor Review';
+
+    try {
+      const { error } = await supabase
+        .from('triage_cases')
+        .update({ status: nextStatus })
+        .eq('id', activeSupabaseCase.id);
+
+      if (error) throw error;
+
+      // Update local state queue
+      setTriageCases((prev) =>
+        prev.map((c) => (c.id === activeSupabaseCase.id ? { ...c, status: nextStatus } : c))
+      );
+
+      Alert.alert('Case Verified & Dispatched', `${activeSupabaseCase.patients?.name || 'Patient'}'s verified vitals and notes have been sent to the doctor's queue.`);
+    } catch (err) {
+      Alert.alert('Update Failed', String(err));
+    }
   };
 
   // Referral Ambulance Request Handler
@@ -187,6 +445,98 @@ export default function AshaCompleteDashboard() {
       }
     } catch (error) {
       Alert.alert('Error', 'Could not capture document.');
+    }
+  };
+
+  const handleAddNewTriageCase = async () => {
+    if (
+      !newPatientName ||
+      !newPatientPhone ||
+      !newPatientAge ||
+      !newPatientGender ||
+      !newCaseSymptoms ||
+      !newCaseDuration
+    ) {
+      Alert.alert(
+        'Missing Details',
+        'Please fill in all required patient and case details.'
+      );
+      return;
+    }
+
+    try {
+      setAddingCase(true);
+
+      // Create the new patient
+      const { data: newPatient, error: patientError } = await supabase
+        .from('patients')
+        .insert({
+          name: newPatientName,
+          phone: newPatientPhone,
+          age: Number(newPatientAge),
+          gender: newPatientGender,
+        })
+        .select()
+        .single();
+
+      if (patientError || !newPatient) {
+        throw new Error(
+          patientError?.message || 'Could not create patient.'
+        );
+      }
+
+      // Create the triage case
+      const { data: newCase, error: caseError } = await supabase
+        .from('triage_cases')
+        .insert({
+          patient_id: newPatient.id,
+          asha_id: ashaId,
+          age: Number(newPatientAge),
+          gender: newPatientGender,
+          symptoms: newCaseSymptoms,
+          symptom_duration: newCaseDuration,
+          status: 'Pending',
+        })
+        .select()
+        .single();
+
+      if (caseError || !newCase) {
+        throw new Error(
+          caseError?.message || 'Could not create triage case.'
+        );
+      }
+
+      console.log('New patient created:', newPatient);
+      console.log('New triage case created:', newCase);
+
+      Alert.alert(
+        'Case Added',
+        'The patient and triage case have been added successfully.'
+      );
+
+      // Clear the form
+      setNewPatientName('');
+      setNewPatientPhone('');
+      setNewPatientAge('');
+      setNewPatientGender('');
+      setNewCaseSymptoms('');
+      setNewCaseDuration('');
+
+      // Add the new case to the current queue immediately
+      setTriageCases((prev) => [newCase, ...prev]);
+      setSelectedCaseId(newCase.id);
+
+    } catch (error) {
+      console.log('Error adding new triage case:', error);
+
+      Alert.alert(
+        'Submission Failed',
+        error instanceof Error
+          ? error.message
+          : 'Could not add the triage case.'
+      );
+    } finally {
+      setAddingCase(false);
     }
   };
 
@@ -224,7 +574,7 @@ export default function AshaCompleteDashboard() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        
+
         {/* ================= 1. HOME TAB ================= */}
         {activeTab === 'home' && (
           <View>
@@ -232,12 +582,14 @@ export default function AshaCompleteDashboard() {
               <Text style={styles.cardHeader}>Today's Operational Task Summary</Text>
               <View style={styles.metricRow}>
                 <View style={[styles.metricBox, { backgroundColor: '#fef2f2' }]}>
-                  <Text style={[styles.metricVal, { color: '#dc2626' }]}>2</Text>
-                  <Text style={styles.metricLbl}>High Priority</Text>
+                  <Text style={[styles.metricVal, { color: '#dc2626' }]}>{triageCases.length}</Text>
+                  <Text style={styles.metricLbl}>Total Live Cases</Text>
                 </View>
                 <View style={[styles.metricBox, { backgroundColor: '#fef3c7' }]}>
-                  <Text style={[styles.metricVal, { color: '#d97706' }]}>3</Text>
-                  <Text style={styles.metricLbl}>Awaiting Doctor</Text>
+                  <Text style={[styles.metricVal, { color: '#d97706' }]}>
+                    {triageCases.filter(c => c.status === 'Pending').length}
+                  </Text>
+                  <Text style={styles.metricLbl}>Pending Review</Text>
                 </View>
                 <View style={[styles.metricBox, { backgroundColor: '#f0fdf4' }]}>
                   <Text style={[styles.metricVal, { color: '#16a34a' }]}>4</Text>
@@ -247,26 +599,79 @@ export default function AshaCompleteDashboard() {
               <Pressable style={styles.primaryButton} onPress={() => setActiveTab('triage')}>
                 <Text style={styles.primaryButtonText}>Open Live Triage Queue →</Text>
               </Pressable>
+              <Pressable
+                style={styles.primaryButton}
+                onPress={prioritizeCases}
+                disabled={loadingPriority}
+              >
+                <Text style={styles.primaryButtonText}>
+                  {loadingPriority
+                    ? 'Prioritizing Cases...'
+                    : ' Prioritize Cases with AI'}
+                </Text>
+              </Pressable>
             </View>
+            {priorityQueue.length > 0 && (
+              <View style={styles.card}>
+                <Text style={styles.cardHeader}>
+                  🤖 AI-Prioritized Doctor Queue
+                </Text>
 
-            <View style={styles.card}>
-              <Text style={styles.cardHeader}>My Active Queue</Text>
-              {patients.map((p) => (
-                <Pressable
-                  key={p.id}
-                  style={styles.queueItem}
-                  onPress={() => {
-                    setSelectedPatientId(p.id);
-                    setActiveTab('triage');
-                  }}
-                >
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.queueName}>{p.name} ({p.age}y • {p.gender})</Text>
-                    <Text style={styles.queueComplaint}>Complaint: {p.complaint}</Text>
+                {priorityQueue.map((item, index) => (
+                  <View key={item.case_id} style={styles.queueItem}>
+                    <Text style={styles.queueName}>
+                      #{index + 1} — {item.urgency}
+                    </Text>
+
+                    <Text style={styles.metaText}>
+                      Case ID: {item.case_id}
+                    </Text>
+
+                    <Text style={styles.queueComplaint}>
+                      Reason: {item.reason}
+                    </Text>
                   </View>
-                  <Text style={styles.queueStatusFlag}>{p.status}</Text>
-                </Pressable>
-              ))}
+                ))}
+              </View>
+            )}
+            <View style={styles.card}>
+              <Text style={styles.cardHeader}>My Active Supabase Queue</Text>
+              {triageCases.length === 0 ? (
+                <Text style={styles.emptyText}>No triage cases found in database.</Text>
+              ) : (
+                triageCases.map((item) => (
+                  <View key={item.id} style={styles.queueItem}>
+                    <Text style={styles.queueName}>
+                      {item.patients?.name || 'Unknown Patient'}
+                    </Text>
+                    <Text style={styles.metaText}>
+                      Age: {item.age} • {item.gender} • Phone: {item.patients?.phone}
+                    </Text>
+                    <Text style={styles.queueComplaint}>
+                      Symptoms: {item.symptoms} (Duration: {item.symptom_duration})
+                    </Text>
+                    <Text style={styles.metaText}>
+                      Temp: {item.temperature}°C • SpO₂: {item.spo2}% • HR: {item.heart_rate} bpm
+                    </Text>
+                    <Text style={styles.metaText}>
+                      BP: {item.blood_pressure} • RR: {item.respiratory_rate} /min
+                    </Text>
+                    <Text style={styles.metaText}>
+                      Status: <Text style={{ fontWeight: 'bold', color: '#0d9488' }}>{item.status}</Text>
+                    </Text>
+
+                    <Pressable
+                      style={styles.secondaryButton}
+                      onPress={() => {
+                        setSelectedCaseId(item.id);
+                        setActiveTab('triage');
+                      }}
+                    >
+                      <Text style={styles.secondaryButtonText}>🔍 Verify & Analyze in Triage</Text>
+                    </Pressable>
+                  </View>
+                ))
+              )}
             </View>
           </View>
         )}
@@ -275,23 +680,76 @@ export default function AshaCompleteDashboard() {
         {activeTab === 'patients' && (
           <View>
             <View style={styles.card}>
-              <Text style={styles.cardHeader}>Search Existing Patient</Text>
-              <TextInput style={styles.input} placeholder="Search by Phone / ABHA ID / Patient ID" />
-            </View>
+              <Text style={styles.cardHeader}>Add New Patient Case</Text>
 
-            <View style={styles.card}>
-              <Text style={styles.cardHeader}>+ Register New Patient (Single Source of Truth)</Text>
-              <Text style={styles.subtext}>Ensures patient links seamlessly to ASHA case, doctor queue, and history.</Text>
+              <Text style={styles.subtext}>
+                Register a new patient and send their case directly to the triage queue.
+              </Text>
 
-              <TextInput style={styles.input} placeholder="Full Legal Name" value={regName} onChangeText={setRegName} />
-              <TextInput style={styles.input} placeholder="Age" keyboardType="numeric" value={regAge} onChangeText={setRegAge} />
-              <TextInput style={styles.input} placeholder="Gender (Female / Male / Other)" value={regGender} onChangeText={setRegGender} />
-              <TextInput style={styles.input} placeholder="Phone Number" keyboardType="phone-pad" value={regPhone} onChangeText={setRegPhone} />
-              <TextInput style={styles.input} placeholder="Village / Ward" value={regVillage} onChangeText={setRegVillage} />
-              <TextInput style={styles.input} placeholder="ABHA ID (Optional)" value={regAbha} onChangeText={setRegAbha} />
+              <Text style={styles.vitalLabel}>Patient Name *</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Full patient name"
+                value={newPatientName}
+                onChangeText={setNewPatientName}
+              />
 
-              <Pressable style={styles.primaryButton} onPress={handleRegisterPatient}>
-                <Text style={styles.primaryButtonText}>Register & Add to Triage Queue</Text>
+              <Text style={styles.vitalLabel}>Phone Number *</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="10-digit mobile number"
+                keyboardType="phone-pad"
+                value={newPatientPhone}
+                onChangeText={setNewPatientPhone}
+              />
+
+              <Text style={styles.vitalLabel}>Age *</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Patient age"
+                keyboardType="numeric"
+                value={newPatientAge}
+                onChangeText={setNewPatientAge}
+              />
+
+              <Text style={styles.vitalLabel}>Gender *</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Male / Female / Other"
+                value={newPatientGender}
+                onChangeText={setNewPatientGender}
+              />
+
+              <Text style={styles.vitalLabel}>Symptoms *</Text>
+              <TextInput
+                style={[styles.input, { minHeight: 70 }]}
+                placeholder="Describe the patient's symptoms"
+                value={newCaseSymptoms}
+                onChangeText={setNewCaseSymptoms}
+                multiline
+              />
+
+              <Text style={styles.vitalLabel}>Symptom Duration *</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g., 3 days"
+                value={newCaseDuration}
+                onChangeText={setNewCaseDuration}
+              />
+
+              <Pressable
+                style={[
+                  styles.primaryButton,
+                  addingCase && { backgroundColor: '#94a3b8' },
+                ]}
+                onPress={handleAddNewTriageCase}
+                disabled={addingCase}
+              >
+                <Text style={styles.primaryButtonText}>
+                  {addingCase
+                    ? 'Adding Case...'
+                    : 'Add Case to Triage Queue'}
+                </Text>
               </Pressable>
             </View>
           </View>
@@ -300,110 +758,133 @@ export default function AshaCompleteDashboard() {
         {/* ================= 3. TRIAGE QUEUE & VERIFICATION TAB ================= */}
         {activeTab === 'triage' && (
           <View>
-            {/* Patient Selector */}
+            {/* Patient Selector from Supabase Triage Queue */}
             <View style={styles.card}>
-              <Text style={styles.cardHeader}>Select Patient to Verify</Text>
+              <Text style={styles.cardHeader}>Select Supabase Case to Verify</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginVertical: 8 }}>
-                {patients.map((p) => (
+                {triageCases.map((c) => (
                   <Pressable
-                    key={p.id}
-                    style={[styles.patientChip, activePatient.id === p.id && styles.patientChipActive]}
-                    onPress={() => setSelectedPatientId(p.id)}
+                    key={c.id}
+                    style={[styles.patientChip, activeSupabaseCase?.id === c.id && styles.patientChipActive]}
+                    onPress={() => setSelectedCaseId(c.id)}
                   >
-                    <Text style={[styles.patientChipText, activePatient.id === p.id && styles.patientChipTextActive]}>
-                      {p.name}
+                    <Text style={[styles.patientChipText, activeSupabaseCase?.id === c.id && styles.patientChipTextActive]}>
+                      {c.patients?.name || 'Patient'}
                     </Text>
                   </Pressable>
                 ))}
               </ScrollView>
 
-              <View style={styles.patientBanner}>
-                <Text style={styles.bannerTitle}>Active Case: {activePatient.name} ({activePatient.age}y)</Text>
-                <Text style={styles.bannerSub}>Patient Complaint: "{activePatient.complaint}" (Duration: {activePatient.duration})</Text>
-                {activePatient.attachedReport && (
-                  <Text style={styles.reportAttachedText}>📎 Attached Document: {activePatient.attachedReport}</Text>
-                )}
-              </View>
-            </View>
-
-            {/* Structured Vitals Entry */}
-            <View style={styles.card}>
-              <Text style={styles.cardHeader}>Structured Vitals Entry</Text>
-              <View style={styles.vitalsGrid}>
-                <View style={styles.vitalInputBox}>
-                  <Text style={styles.vitalLabel}>Temp (°F)</Text>
-                  <TextInput style={styles.vitalField} placeholder="102" value={activePatient.vitals.temp} onChangeText={(v) => handleUpdateActiveVitals('temp', v)} />
-                </View>
-                <View style={styles.vitalInputBox}>
-                  <Text style={styles.vitalLabel}>BP (mmHg)</Text>
-                  <TextInput style={styles.vitalField} placeholder="110/70" value={activePatient.vitals.bp} onChangeText={(v) => handleUpdateActiveVitals('bp', v)} />
-                </View>
-                <View style={styles.vitalInputBox}>
-                  <Text style={styles.vitalLabel}>SpO₂ (%)</Text>
-                  <TextInput style={styles.vitalField} placeholder="96" value={activePatient.vitals.spO2} onChangeText={(v) => handleUpdateActiveVitals('spO2', v)} />
-                </View>
-                <View style={styles.vitalInputBox}>
-                  <Text style={styles.vitalLabel}>Pulse (bpm)</Text>
-                  <TextInput style={styles.vitalField} placeholder="82" value={activePatient.vitals.pulse} onChangeText={(v) => handleUpdateActiveVitals('pulse', v)} />
-                </View>
-                <View style={styles.vitalInputBox}>
-                  <Text style={styles.vitalLabel}>Resp Rate (/min)</Text>
-                  <TextInput style={styles.vitalField} placeholder="18" value={activePatient.vitals.rr} onChangeText={(v) => handleUpdateActiveVitals('rr', v)} />
-                </View>
-                <View style={styles.vitalInputBox}>
-                  <Text style={styles.vitalLabel}>Weight (kg)</Text>
-                  <TextInput style={styles.vitalField} placeholder="52" value={activePatient.vitals.weight} onChangeText={(v) => handleUpdateActiveVitals('weight', v)} />
-                </View>
-              </View>
-            </View>
-
-            {/* Triage Questions / Risk Flags */}
-            <View style={styles.card}>
-              <Text style={styles.cardHeader}>Clinical Triage Risk Checklist</Text>
-              <Text style={styles.subtext}>Does the patient exhibit any of the following emergency indicators?</Text>
-              
-              {[
-                { key: 'breathing', label: 'Difficulty breathing / Shortness of breath' },
-                { key: 'chestPain', label: 'Chest pain or discomfort' },
-                { key: 'bleeding', label: 'Severe bleeding' },
-                { key: 'unconscious', label: 'Loss of consciousness / Confusion' },
-                { key: 'dehydration', label: 'Severe dehydration / inability to retain fluids' },
-                { key: 'highFever', label: 'Very high sustained fever (> 103°F)' },
-              ].map((item) => (
-                <Pressable
-                  key={item.key}
-                  style={styles.checkboxRow}
-                  onPress={() => handleToggleTriageFlag(item.key)}
-                >
-                  <Text style={styles.checkboxBox}>
-                    {activePatient.triageFlags[item.key as keyof typeof activePatient.triageFlags] ? '☑' : '☐'}
+              {activeSupabaseCase ? (
+                <View style={styles.patientBanner}>
+                  <Text style={styles.bannerTitle}>
+                    Active Case: {activeSupabaseCase.patients?.name} ({activeSupabaseCase.age}y)
                   </Text>
-                  <Text style={styles.checkboxLabel}>{item.label}</Text>
-                </Pressable>
-              ))}
-
-              {(activePatient.triageFlags.breathing || activePatient.triageFlags.chestPain || activePatient.triageFlags.unconscious) && (
-                <View style={styles.alertFlagBox}>
-                  <Text style={styles.alertFlagText}>⚠ HIGH RISK DETECTED: Critical symptom flags checked. Prioritize doctor review & consider emergency referral.</Text>
+                  <Text style={styles.bannerSub}>
+                    Symptoms: "{activeSupabaseCase.symptoms}" (Duration: {activeSupabaseCase.symptom_duration})
+                  </Text>
+                  <Text style={styles.metaText}>
+                    Known Conditions: {activeSupabaseCase.patients?.known_conditions || 'None'}
+                  </Text>
                 </View>
+              ) : (
+                <Text style={styles.emptyText}>No active patient selected.</Text>
               )}
             </View>
 
-            {/* ASHA Triage Notes */}
-            <View style={styles.card}>
-              <Text style={styles.cardHeader}>ASHA Observations & Triage Notes</Text>
-              <TextInput
-                style={styles.textArea}
-                multiline
-                numberOfLines={3}
-                placeholder="Enter patient background, local treatment given (e.g. paracetamol), and observations..."
-                value={activePatient.ashaNotes}
-                onChangeText={handleUpdateNotes}
-              />
-              <Pressable style={styles.primaryButton} onPress={handleSubmitVerifiedCase}>
-                <Text style={styles.primaryButtonText}>✓ Submit Verified Case to Doctor Queue</Text>
-              </Pressable>
-            </View>
+            {/* Structured Vitals View / Verification Box */}
+            {activeSupabaseCase && (
+              <View style={styles.card}>
+                <Text style={styles.cardHeader}>Live Vitals Record (From DB)</Text>
+                <View style={styles.vitalsGrid}>
+                  <View style={styles.vitalInputBox}>
+                    <Text style={styles.vitalLabel}>Temp (°C)</Text>
+                    <TextInput style={styles.vitalField} editable={false} value={String(activeSupabaseCase.temperature || '')} />
+                  </View>
+                  <View style={styles.vitalInputBox}>
+                    <Text style={styles.vitalLabel}>BP (mmHg)</Text>
+                    <TextInput style={styles.vitalField} editable={false} value={String(activeSupabaseCase.blood_pressure || '')} />
+                  </View>
+                  <View style={styles.vitalInputBox}>
+                    <Text style={styles.vitalLabel}>SpO₂ (%)</Text>
+                    <TextInput style={styles.vitalField} editable={false} value={String(activeSupabaseCase.spo2 || '')} />
+                  </View>
+                  <View style={styles.vitalInputBox}>
+                    <Text style={styles.vitalLabel}>Pulse (bpm)</Text>
+                    <TextInput style={styles.vitalField} editable={false} value={String(activeSupabaseCase.heart_rate || '')} />
+                  </View>
+                  <View style={styles.vitalInputBox}>
+                    <Text style={styles.vitalLabel}>Resp Rate (/min)</Text>
+                    <TextInput style={styles.vitalField} editable={false} value={String(activeSupabaseCase.respiratory_rate || '')} />
+                  </View>
+                </View>
+
+                {/* Gemini Trigger Button for Selected DB Record */}
+                <Pressable
+                  style={styles.primaryButton}
+                  onPress={() => testGeminiForCase(activeSupabaseCase)}
+                >
+                  <Text style={styles.primaryButtonText}>
+                    {loadingGemini ? 'Analyzing...' : '✨ Run Gemini Clinical Follow-up Analysis'}
+                  </Text>
+                </Pressable>
+
+                {/* Follow-up questions -> worker answers them here */}
+                {parsedQuestions.length > 0 && (
+                  <View style={styles.geminiBox}>
+                    <Text style={styles.geminiTitle}>Answer the Follow-up Questions</Text>
+                    {parsedQuestions.map((q, i) => (
+                      <View key={i} style={{ marginBottom: 10 }}>
+                        <Text style={styles.questionText}>{i + 1}. {q}</Text>
+                        <TextInput
+                          style={styles.answerInput}
+                          placeholder="Worker's answer..."
+                          value={answers[i] || ''}
+                          onChangeText={(text) => setAnswers((prev) => ({ ...prev, [i]: text }))}
+                          multiline
+                        />
+                      </View>
+                    ))}
+
+                    <Pressable style={styles.primaryButton} onPress={getAssessment}>
+                      <Text style={styles.primaryButtonText}>
+                        {loadingAssessment ? 'Assessing...' : '🩺 Get Clinical Risk Assessment'}
+                      </Text>
+                    </Pressable>
+                  </View>
+                )}
+
+                {/* Gemini's raw follow-up output, useful for debugging */}
+                {geminiResponse !== '' && parsedQuestions.length === 0 && (
+                  <View style={styles.geminiBox}>
+                    <Text style={styles.geminiTitle}>Gemini Follow-up Questions Output</Text>
+                    <Text style={styles.geminiText}>{geminiResponse}</Text>
+                  </View>
+                )}
+
+                {/* Final urgency verdict */}
+                {assessment && (
+                  <View style={[
+                    styles.assessmentCard,
+                    assessment.urgency === 'critical' && styles.assessmentCritical,
+                    assessment.urgency === 'moderate' && styles.assessmentModerate,
+                    assessment.urgency === 'low' && styles.assessmentLow,
+                  ]}>
+                    <Text style={styles.assessmentUrgencyText}>
+                      {assessment.urgency === 'critical' && '🔴 CRITICAL'}
+                      {assessment.urgency === 'moderate' && '🟠 MODERATE'}
+                      {assessment.urgency === 'low' && '🟢 LOW RISK'}
+                    </Text>
+                    <Text style={styles.assessmentReasoning}>{assessment.reasoning}</Text>
+                    <Text style={styles.assessmentAction}>Next step: {assessment.recommended_action}</Text>
+                  </View>
+                )}
+
+                <Pressable style={[styles.primaryButton, { backgroundColor: '#16a34a', marginTop: 12 }]} onPress={handleSubmitVerifiedCase}>
+                  <Text style={styles.primaryButtonText}>✓ Submit Verified Case Status to Doctor Queue</Text>
+                </Pressable>
+              </View>
+            )}
           </View>
         )}
 
@@ -435,7 +916,7 @@ export default function AshaCompleteDashboard() {
             <View style={styles.card}>
               <Text style={styles.cardHeader}>Follow-ups Due Today</Text>
               <View style={styles.followupCard}>
-                <Text style={styles.queueName}>Lakshmiamma (High Risk)</Text>
+                <Text style={styles.queueName}>Lakshmamma Patil (High Risk)</Text>
                 <Text style={styles.metaText}>Due Date: Today | Reason: BP re-check & symptom tracking</Text>
                 <Pressable style={styles.primaryButton} onPress={() => Alert.alert('Home Visit Recorded', 'BP re-check logged successfully. Loop closed!')}>
                   <Text style={styles.primaryButtonText}>🏠 Start Home Visit & Log Vitals</Text>
@@ -473,6 +954,19 @@ export default function AshaCompleteDashboard() {
 }
 
 const styles = StyleSheet.create({
+  emptyText: { fontSize: 14, color: '#64748b', paddingVertical: 10, textAlign: 'center' },
+  geminiBox: { marginTop: 12, padding: 16, backgroundColor: '#f0fdfa', borderRadius: 10, borderWidth: 1, borderColor: '#99f6e4' },
+  geminiTitle: { fontSize: 14, fontWeight: 'bold', color: '#134e4a', marginBottom: 6 },
+  geminiText: { fontSize: 13, color: '#334155' },
+  questionText: { fontSize: 13, fontWeight: '600', color: '#0f172a', marginBottom: 4 },
+  answerInput: { backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#99f6e4', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, fontSize: 13, color: '#0f172a', minHeight: 40 },
+  assessmentCard: { marginTop: 12, padding: 16, borderRadius: 10, borderWidth: 1 },
+  assessmentCritical: { backgroundColor: '#fef2f2', borderColor: '#fecaca' },
+  assessmentModerate: { backgroundColor: '#fffbeb', borderColor: '#fde68a' },
+  assessmentLow: { backgroundColor: '#f0fdf4', borderColor: '#bbf7d0' },
+  assessmentUrgencyText: { fontSize: 15, fontWeight: 'bold', marginBottom: 6, color: '#0f172a' },
+  assessmentReasoning: { fontSize: 13, color: '#334155', marginBottom: 6 },
+  assessmentAction: { fontSize: 13, fontWeight: '600', color: '#0f172a' },
   container: { flex: 1, backgroundColor: '#f8fafc' },
   header: { paddingTop: 50, paddingHorizontal: 20, paddingBottom: 12, backgroundColor: '#ffffff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   headerRight: { flexDirection: 'row', alignItems: 'center' },
@@ -496,10 +990,11 @@ const styles = StyleSheet.create({
   metricLbl: { fontSize: 10, color: '#475569', textAlign: 'center', marginTop: 2 },
   primaryButton: { backgroundColor: '#0d9488', paddingVertical: 11, borderRadius: 8, alignItems: 'center', marginTop: 8 },
   primaryButtonText: { color: '#ffffff', fontSize: 13, fontWeight: 'bold' },
-  queueItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8fafc', padding: 12, borderRadius: 8, marginBottom: 8, borderWidth: 1, borderColor: '#e2e8f0' },
+  secondaryButton: { backgroundColor: '#f1f5f9', paddingVertical: 8, borderRadius: 6, alignItems: 'center', marginTop: 8, borderWidth: 1, borderColor: '#cbd5e1' },
+  secondaryButtonText: { color: '#0f172a', fontSize: 12, fontWeight: '600' },
+  queueItem: { backgroundColor: '#f8fafc', padding: 12, borderRadius: 8, marginBottom: 8, borderWidth: 1, borderColor: '#e2e8f0' },
   queueName: { fontSize: 13, fontWeight: 'bold', color: '#0f172a' },
   queueComplaint: { fontSize: 11, color: '#475569', marginTop: 2 },
-  queueStatusFlag: { fontSize: 10, fontWeight: 'bold', color: '#b45309', backgroundColor: '#fef3c7', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4 },
   input: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 13, color: '#0f172a', marginBottom: 10 },
   patientChip: { paddingHorizontal: 14, paddingVertical: 8, backgroundColor: '#f1f5f9', borderRadius: 20, marginRight: 8, borderWidth: 1, borderColor: '#cbd5e1' },
   patientChipActive: { backgroundColor: '#0d9488', borderColor: '#0d9488' },
@@ -508,17 +1003,10 @@ const styles = StyleSheet.create({
   patientBanner: { backgroundColor: '#f0fdfa', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#ccfbf1', marginTop: 8 },
   bannerTitle: { fontSize: 13, fontWeight: 'bold', color: '#134e4a' },
   bannerSub: { fontSize: 12, color: '#0f766e', marginTop: 2 },
-  reportAttachedText: { fontSize: 11, color: '#0284c7', fontWeight: '600', marginTop: 4 },
   vitalsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
   vitalInputBox: { width: '31%', marginBottom: 10 },
   vitalLabel: { fontSize: 11, fontWeight: '600', color: '#475569', marginBottom: 2 },
   vitalField: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 8, fontSize: 12, color: '#0f172a' },
-  checkboxRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-  checkboxBox: { fontSize: 16, marginRight: 8, color: '#0d9488', fontWeight: 'bold' },
-  checkboxLabel: { fontSize: 12, color: '#334155' },
-  alertFlagBox: { backgroundColor: '#fef2f2', padding: 10, borderRadius: 6, borderWidth: 1, borderColor: '#fecaca', marginTop: 8 },
-  alertFlagText: { fontSize: 11, color: '#dc2626', fontWeight: 'bold' },
-  textArea: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 13, color: '#0f172a', height: 80, textAlignVertical: 'top', marginBottom: 8 },
   referralCard: { backgroundColor: '#f8fafc', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#e2e8f0', marginBottom: 10 },
   referralTitle: { fontSize: 13, fontWeight: 'bold', color: '#0f172a', marginBottom: 4 },
   metaText: { fontSize: 12, color: '#475569', marginBottom: 2 },
