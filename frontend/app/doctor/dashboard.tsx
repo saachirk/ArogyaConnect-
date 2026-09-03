@@ -812,31 +812,31 @@ export default function DoctorDashboardScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#f3f7fa',
   },
 
   header: {
     paddingTop: 50,
-    paddingHorizontal: 20,
-    paddingBottom: 16,
+    paddingHorizontal: 28,
+    paddingBottom: 18,
     backgroundColor: '#ffffff',
     borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: '#d9e3ea',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
 
   title: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#0f172a',
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#143b61',
   },
 
   subtitle: {
-    fontSize: 12,
-    color: '#64748b',
-    marginTop: 2,
+    fontSize: 13,
+    color: '#698096',
+    marginTop: 3,
   },
 
   statusBox: {
@@ -844,86 +844,96 @@ const styles = StyleSheet.create({
   },
 
   statusText: {
-    fontSize: 11,
-    fontWeight: '600',
-    marginBottom: 2,
+    fontSize: 12,
+    fontWeight: '800',
+    marginBottom: 3,
   },
 
   logoutText: {
-    fontSize: 12,
-    color: '#dc2626',
-    fontWeight: '600',
-    marginTop: 6,
+    fontSize: 14,
+    color: '#c94f4f',
+    fontWeight: '700',
+    marginTop: 7,
   },
 
   tabNav: {
     flexDirection: 'row',
-    backgroundColor: '#e2e8f0',
-    paddingHorizontal: 3,
-    paddingVertical: 2,
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#d9e3ea',
+    paddingHorizontal: 18,
   },
 
   subTab: {
     flex: 1,
-    minHeight: 34,
-    paddingVertical: 5,
-    paddingHorizontal: 2,
+    minHeight: 44,
+    paddingVertical: 10,
+    paddingHorizontal: 6,
     alignItems: 'center',
     justifyContent: 'center',
+    borderBottomWidth: 3,
+    borderBottomColor: 'transparent',
   },
 
   activeSubTab: {
-    backgroundColor: '#ffffff',
-    borderRadius: 4,
+    borderBottomColor: '#0d9488',
   },
 
   subTabText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#64748b',
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#698096',
     textAlign: 'center',
   },
 
   activeSubTabText: {
-    color: '#0284c7',
+    color: '#08766c',
+    fontWeight: '800',
   },
 
   scrollContent: {
-    padding: 16,
-    maxWidth: 800,
+    paddingHorizontal: 24,
+    paddingTop: 22,
+    paddingBottom: 34,
+    maxWidth: 940,
     width: '100%',
     alignSelf: 'center',
   },
 
   sectionHeader: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    color: '#334155',
-    marginBottom: 10,
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#143b61',
+    marginBottom: 12,
   },
 
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#0f172a',
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#143b61',
     marginBottom: 10,
   },
 
   sectionSubHeader: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#0f172a',
-    marginTop: 14,
-    marginBottom: 8,
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#183d60',
+    marginTop: 16,
+    marginBottom: 9,
   },
 
   card: {
     backgroundColor: '#ffffff',
-    borderRadius: 10,
-    padding: 14,
-    marginBottom: 12,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 18,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: '#d9e3ea',
+    shadowColor: '#123b5d',
+    shadowOpacity: 0.06,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 2,
   },
 
   rowBetween: {
@@ -933,145 +943,165 @@ const styles = StyleSheet.create({
   },
 
   cardTitle: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    color: '#0f172a',
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#143b61',
     flex: 1,
-    marginRight: 8,
+    marginRight: 10,
+    lineHeight: 21,
   },
 
   metaText: {
     fontSize: 12,
-    color: '#64748b',
-    marginTop: 2,
+    color: '#698096',
+    marginTop: 4,
+    lineHeight: 18,
   },
 
   badge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 4,
+    paddingHorizontal: 11,
+    paddingVertical: 6,
+    borderRadius: 9,
+    borderWidth: 1,
   },
 
   badgeHigh: {
-    backgroundColor: '#fee2e2',
+    backgroundColor: '#fff0f0',
+    borderColor: '#efcccc',
   },
 
   badgeMod: {
-    backgroundColor: '#fef3c7',
+    backgroundColor: '#fff7df',
+    borderColor: '#edd58c',
   },
 
   badgeText: {
     fontSize: 11,
-    fontWeight: 'bold',
-    color: '#b91c1c',
+    fontWeight: '800',
+    color: '#b94a4a',
   },
 
   infoBox: {
-    backgroundColor: '#f8fafc',
-    padding: 10,
-    borderRadius: 6,
-    marginVertical: 8,
+    backgroundColor: '#f4f8fc',
+    padding: 15,
+    borderRadius: 12,
+    marginVertical: 10,
+    borderWidth: 1,
+    borderColor: '#dce6ed',
   },
 
   labelText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#64748b',
-    marginTop: 4,
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#698096',
+    marginTop: 5,
+    marginBottom: 2,
   },
 
   valueText: {
-    fontSize: 13,
-    color: '#0f172a',
+    fontSize: 14,
+    color: '#183d60',
+    lineHeight: 20,
   },
 
   vitalsText: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#0284c7',
+    fontWeight: '800',
+    color: '#087bb5',
+    lineHeight: 19,
   },
 
   notesText: {
     fontSize: 12,
     fontStyle: 'italic',
-    color: '#334155',
+    color: '#426477',
+    lineHeight: 18,
   },
 
   input: {
     backgroundColor: '#f8fafc',
     borderWidth: 1,
-    borderColor: '#cbd5e1',
-    borderRadius: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    fontSize: 13,
-    color: '#0f172a',
-    marginBottom: 8,
+    borderColor: '#cbd9e3',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    fontSize: 14,
+    color: '#122f4d',
+    marginBottom: 12,
   },
 
   primaryButton: {
-    backgroundColor: '#0284c7',
-    paddingVertical: 10,
-    borderRadius: 6,
+    backgroundColor: '#0d9488',
+    paddingVertical: 14,
+    borderRadius: 10,
     alignItems: 'center',
+    justifyContent: 'center',
     marginTop: 8,
+    minHeight: 50,
   },
 
   primaryButtonText: {
     color: '#ffffff',
-    fontSize: 13,
-    fontWeight: 'bold',
+    fontSize: 14,
+    fontWeight: '800',
+    textAlign: 'center',
   },
 
   secondaryButton: {
+    backgroundColor: '#f3f7fa',
     borderWidth: 1,
-    borderColor: '#94a3b8',
-    paddingVertical: 10,
-    borderRadius: 6,
+    borderColor: '#cbd9e3',
+    paddingVertical: 11,
+    borderRadius: 10,
     alignItems: 'center',
-    marginTop: 8,
+    justifyContent: 'center',
+    marginTop: 10,
+    minHeight: 44,
   },
 
   secondaryButtonText: {
-    color: '#475569',
-    fontSize: 13,
-    fontWeight: 'bold',
+    color: '#183d60',
+    fontSize: 12,
+    fontWeight: '800',
   },
 
   commRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 10,
+    marginBottom: 12,
   },
 
   commButton: {
     flex: 1,
-    paddingVertical: 8,
-    borderRadius: 6,
+    paddingVertical: 11,
+    borderRadius: 10,
     alignItems: 'center',
-    marginHorizontal: 2,
+    marginHorizontal: 3,
   },
 
   commButtonText: {
     color: '#ffffff',
-    fontSize: 11,
-    fontWeight: 'bold',
+    fontSize: 12,
+    fontWeight: '800',
   },
 
   backLink: {
-    marginBottom: 8,
+    marginBottom: 12,
+    paddingVertical: 4,
   },
 
   backLinkText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#0284c7',
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#087bb5',
   },
 
   statusFlag: {
-    padding: 8,
-    borderRadius: 6,
-    marginTop: 8,
+    padding: 10,
+    borderRadius: 10,
+    marginTop: 9,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#d9e3ea',
   },
 });

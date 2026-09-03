@@ -985,66 +985,464 @@ ${JSON.stringify(data)}
 }
 
 const styles = StyleSheet.create({
-  emptyText: { fontSize: 14, color: '#64748b', paddingVertical: 10, textAlign: 'center' },
-  geminiBox: { marginTop: 12, padding: 16, backgroundColor: '#f0fdfa', borderRadius: 10, borderWidth: 1, borderColor: '#99f6e4' },
-  geminiTitle: { fontSize: 14, fontWeight: 'bold', color: '#134e4a', marginBottom: 6 },
-  geminiText: { fontSize: 13, color: '#334155' },
-  questionText: { fontSize: 13, fontWeight: '600', color: '#0f172a', marginBottom: 4 },
-  answerInput: { backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#99f6e4', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, fontSize: 13, color: '#0f172a', minHeight: 40 },
-  assessmentCard: { marginTop: 12, padding: 16, borderRadius: 10, borderWidth: 1 },
-  assessmentCritical: { backgroundColor: '#fef2f2', borderColor: '#fecaca' },
-  assessmentModerate: { backgroundColor: '#fffbeb', borderColor: '#fde68a' },
-  assessmentLow: { backgroundColor: '#f0fdf4', borderColor: '#bbf7d0' },
-  assessmentUrgencyText: { fontSize: 15, fontWeight: 'bold', marginBottom: 6, color: '#0f172a' },
-  assessmentReasoning: { fontSize: 13, color: '#334155', marginBottom: 6 },
-  assessmentAction: { fontSize: 13, fontWeight: '600', color: '#0f172a' },
-  container: { flex: 1, backgroundColor: '#f8fafc' },
-  header: { paddingTop: 50, paddingHorizontal: 20, paddingBottom: 12, backgroundColor: '#ffffff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  headerRight: { flexDirection: 'row', alignItems: 'center' },
-  title: { fontSize: 16, fontWeight: 'bold', color: '#0f172a' },
-  subtitle: { fontSize: 11, color: '#64748b', marginTop: 2 },
-  offlineBadge: { backgroundColor: '#fef3c7', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, marginRight: 10 },
-  offlineText: { fontSize: 10, fontWeight: 'bold', color: '#b45309' },
-  logoutText: { fontSize: 13, color: '#ef4444', fontWeight: '600' },
-  navBar: { flexDirection: 'row', backgroundColor: '#ffffff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0', paddingHorizontal: 10 },
-  navTab: { paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 2, borderBottomColor: 'transparent' },
-  navTabActive: { borderBottomColor: '#0d9488' },
-  navTabText: { fontSize: 11, fontWeight: '600', color: '#64748b' },
-  navTabTextActive: { color: '#0d9488', fontWeight: 'bold' },
-  scrollContent: { padding: 16, maxWidth: 850, width: '100%', alignSelf: 'center' },
-  card: { backgroundColor: '#ffffff', borderRadius: 10, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: '#e2e8f0' },
-  cardHeader: { fontSize: 15, fontWeight: 'bold', color: '#0f172a', marginBottom: 6 },
-  subtext: { fontSize: 12, color: '#64748b', marginBottom: 10 },
-  metricRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
-  metricBox: { flex: 1, padding: 10, borderRadius: 8, marginHorizontal: 3, alignItems: 'center', borderWidth: 1, borderColor: '#e2e8f0' },
-  metricVal: { fontSize: 20, fontWeight: 'bold' },
-  metricLbl: { fontSize: 10, color: '#475569', textAlign: 'center', marginTop: 2 },
-  primaryButton: { backgroundColor: '#0d9488', paddingVertical: 11, borderRadius: 8, alignItems: 'center', marginTop: 8 },
-  primaryButtonText: { color: '#ffffff', fontSize: 13, fontWeight: 'bold' },
-  secondaryButton: { backgroundColor: '#f1f5f9', paddingVertical: 8, borderRadius: 6, alignItems: 'center', marginTop: 8, borderWidth: 1, borderColor: '#cbd5e1' },
-  secondaryButtonText: { color: '#0f172a', fontSize: 12, fontWeight: '600' },
-  queueItem: { backgroundColor: '#f8fafc', padding: 12, borderRadius: 8, marginBottom: 8, borderWidth: 1, borderColor: '#e2e8f0' },
-  queueName: { fontSize: 13, fontWeight: 'bold', color: '#0f172a' },
-  queueComplaint: { fontSize: 11, color: '#475569', marginTop: 2 },
-  input: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 13, color: '#0f172a', marginBottom: 10 },
-  patientChip: { paddingHorizontal: 14, paddingVertical: 8, backgroundColor: '#f1f5f9', borderRadius: 20, marginRight: 8, borderWidth: 1, borderColor: '#cbd5e1' },
-  patientChipActive: { backgroundColor: '#0d9488', borderColor: '#0d9488' },
-  patientChipText: { fontSize: 12, fontWeight: '600', color: '#334155' },
-  patientChipTextActive: { color: '#ffffff' },
-  patientBanner: { backgroundColor: '#f0fdfa', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#ccfbf1', marginTop: 8 },
-  bannerTitle: { fontSize: 13, fontWeight: 'bold', color: '#134e4a' },
-  bannerSub: { fontSize: 12, color: '#0f766e', marginTop: 2 },
-  vitalsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
-  vitalInputBox: { width: '31%', marginBottom: 10 },
-  vitalLabel: { fontSize: 11, fontWeight: '600', color: '#475569', marginBottom: 2 },
-  vitalField: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 8, fontSize: 12, color: '#0f172a' },
-  referralCard: { backgroundColor: '#f8fafc', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#e2e8f0', marginBottom: 10 },
-  referralTitle: { fontSize: 13, fontWeight: 'bold', color: '#0f172a', marginBottom: 4 },
-  metaText: { fontSize: 12, color: '#475569', marginBottom: 2 },
-  ambulanceButton: { backgroundColor: '#dc2626', paddingVertical: 8, borderRadius: 6, alignItems: 'center', marginTop: 8 },
-  ambulanceButtonText: { color: '#ffffff', fontSize: 11, fontWeight: 'bold' },
-  followupCard: { backgroundColor: '#f8fafc', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#e2e8f0' },
-  docRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#f8fafc', padding: 10, borderRadius: 6, borderWidth: 1, borderColor: '#e2e8f0', marginBottom: 6 },
-  docName: { fontSize: 12, fontWeight: '600', color: '#334155' },
-  docAction: { fontSize: 12, color: '#0284c7', fontWeight: 'bold' },
+  emptyText: {
+    fontSize: 13,
+    color: '#698096',
+    paddingVertical: 12,
+    textAlign: 'center',
+  },
+
+  geminiBox: {
+    marginTop: 14,
+    padding: 16,
+    backgroundColor: '#edf9f7',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#c8ebe5',
+  },
+
+  geminiTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#08766c',
+    marginBottom: 7,
+  },
+
+  geminiText: {
+    fontSize: 13,
+    color: '#36566d',
+    lineHeight: 19,
+  },
+
+  questionText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#183d60',
+    marginBottom: 5,
+    lineHeight: 19,
+  },
+
+  answerInput: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#c8d9e3',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    fontSize: 13,
+    color: '#183d60',
+    minHeight: 44,
+  },
+
+  assessmentCard: {
+    marginTop: 14,
+    padding: 16,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+
+  assessmentCritical: {
+    backgroundColor: '#fff4f4',
+    borderColor: '#efcaca',
+  },
+
+  assessmentModerate: {
+    backgroundColor: '#fff9e9',
+    borderColor: '#ecdca5',
+  },
+
+  assessmentLow: {
+    backgroundColor: '#edf9f7',
+    borderColor: '#b9dfd8',
+  },
+
+  assessmentUrgencyText: {
+    fontSize: 15,
+    fontWeight: '800',
+    marginBottom: 7,
+    color: '#143b61',
+  },
+
+  assessmentReasoning: {
+    fontSize: 13,
+    color: '#426477',
+    marginBottom: 7,
+    lineHeight: 19,
+  },
+
+  assessmentAction: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#183d60',
+    lineHeight: 19,
+  },
+
+  container: {
+    flex: 1,
+    backgroundColor: '#f3f7fa',
+  },
+
+  header: {
+    paddingTop: 50,
+    paddingHorizontal: 28,
+    paddingBottom: 18,
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#d9e3ea',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+
+  title: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#143b61',
+  },
+
+  subtitle: {
+    fontSize: 13,
+    color: '#698096',
+    marginTop: 3,
+  },
+
+  offlineBadge: {
+    backgroundColor: '#fff7df',
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: '#f3d98b',
+    marginRight: 10,
+  },
+
+  offlineText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#9d6500',
+  },
+
+  logoutText: {
+    fontSize: 14,
+    color: '#c94f4f',
+    fontWeight: '700',
+  },
+
+  navBar: {
+    flexDirection: 'row',
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#d9e3ea',
+    paddingHorizontal: 18,
+  },
+
+  navTab: {
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderBottomWidth: 3,
+    borderBottomColor: 'transparent',
+  },
+
+  navTabActive: {
+    borderBottomColor: '#0d9488',
+  },
+
+  navTabText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#698096',
+  },
+
+  navTabTextActive: {
+    color: '#08766c',
+    fontWeight: '800',
+  },
+
+  scrollContent: {
+    paddingHorizontal: 24,
+    paddingTop: 22,
+    paddingBottom: 34,
+    maxWidth: 940,
+    width: '100%',
+    alignSelf: 'center',
+  },
+
+  card: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 18,
+    borderWidth: 1,
+    borderColor: '#d9e3ea',
+    shadowColor: '#123b5d',
+    shadowOpacity: 0.06,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 2,
+  },
+
+  cardHeader: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#143b61',
+    marginBottom: 7,
+  },
+
+  subtext: {
+    fontSize: 13,
+    color: '#698096',
+    lineHeight: 20,
+    marginBottom: 14,
+  },
+
+  metricRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+
+  metricBox: {
+    flex: 1,
+    padding: 14,
+    borderRadius: 12,
+    marginHorizontal: 4,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#d9e3ea',
+  },
+
+  metricVal: {
+    fontSize: 22,
+    fontWeight: '800',
+  },
+
+  metricLbl: {
+    fontSize: 11,
+    color: '#698096',
+    textAlign: 'center',
+    marginTop: 4,
+    fontWeight: '600',
+  },
+
+  primaryButton: {
+    backgroundColor: '#0d9488',
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+    minHeight: 50,
+  },
+
+  primaryButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+
+  secondaryButton: {
+    backgroundColor: '#f3f7fa',
+    paddingVertical: 11,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: '#cbd9e3',
+    minHeight: 44,
+  },
+
+  secondaryButtonText: {
+    color: '#183d60',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+
+  queueItem: {
+    backgroundColor: '#f8fafc',
+    padding: 14,
+    borderRadius: 12,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#dfe8ee',
+  },
+
+  queueName: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#143b61',
+  },
+
+  queueComplaint: {
+    fontSize: 12,
+    color: '#426477',
+    marginTop: 4,
+    lineHeight: 18,
+  },
+
+  input: {
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#cbd9e3',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    fontSize: 14,
+    color: '#122f4d',
+    marginBottom: 12,
+  },
+
+  patientChip: {
+    paddingHorizontal: 15,
+    paddingVertical: 9,
+    backgroundColor: '#f3f7fa',
+    borderRadius: 10,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#cbd9e3',
+  },
+
+  patientChipActive: {
+    backgroundColor: '#0d9488',
+    borderColor: '#0d9488',
+  },
+
+  patientChipText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#426477',
+  },
+
+  patientChipTextActive: {
+    color: '#ffffff',
+    fontWeight: '800',
+  },
+
+  patientBanner: {
+    backgroundColor: '#edf9f7',
+    padding: 15,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#c8ebe5',
+    marginTop: 10,
+  },
+
+  bannerTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#08766c',
+  },
+
+  bannerSub: {
+    fontSize: 12,
+    color: '#2f7069',
+    marginTop: 4,
+    lineHeight: 18,
+  },
+
+  vitalsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+
+  vitalInputBox: {
+    width: '31%',
+    marginBottom: 14,
+  },
+
+  vitalLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#183d60',
+    marginBottom: 6,
+  },
+
+  vitalField: {
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#cbd9e3',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 11,
+    fontSize: 13,
+    color: '#122f4d',
+  },
+
+  referralCard: {
+    backgroundColor: '#f8fafc',
+    padding: 15,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#dfe8ee',
+    marginBottom: 12,
+  },
+
+  referralTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#143b61',
+    marginBottom: 5,
+  },
+
+  metaText: {
+    fontSize: 12,
+    color: '#698096',
+    marginBottom: 3,
+    lineHeight: 18,
+  },
+
+  ambulanceButton: {
+    backgroundColor: '#c94f4f',
+    paddingVertical: 11,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 10,
+    minHeight: 44,
+  },
+
+  ambulanceButtonText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+
+  followupCard: {
+    backgroundColor: '#f8fafc',
+    padding: 15,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#dfe8ee',
+  },
+
+  docRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#f8fafc',
+    padding: 13,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#dfe8ee',
+    marginBottom: 8,
+  },
+
+  docName: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#183d60',
+  },
+
+  docAction: {
+    fontSize: 12,
+    color: '#087bb5',
+    fontWeight: '800',
+  },
 });
