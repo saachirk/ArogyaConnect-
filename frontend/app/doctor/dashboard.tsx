@@ -1,5 +1,7 @@
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { supabase } from '../lib/supabase';
+import { LanguageSelector, useLanguage } from '../lib/i18n';
 import {
     Alert,
     Pressable,
@@ -13,6 +15,7 @@ import {
 
 export default function DoctorDashboardScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
 
   const [isOnline, setIsOnline] = useState(true);
 
@@ -33,34 +36,10 @@ export default function DoctorDashboardScreen() {
   const [referralFacility, setReferralFacility] = useState('');
   const [referralReason, setReferralReason] = useState('');
 
-  // Mock Queue Data
-  const [queueCases, setQueueCases] = useState([
-    {
-      id: '1',
-      patientName: 'Lakshmiamma',
-      age: 48,
-      gender: 'Female',
-      ashaWorker: 'Sunita',
-      symptoms: 'High fever, chills, body ache',
-      vitals: 'Temp: 102°F | BP: 110/70 | SpO2: 96%',
-      risk: 'Moderate',
-      ashaNotes: 'History of diabetes. Paracetamol given locally.',
-      history: 'Type-2 Diabetes (5 years). No prior hospitalizations.',
-    },
-    {
-      id: '2',
-      patientName: 'Ramesh Kumar',
-      age: 62,
-      gender: 'Male',
-      ashaWorker: 'Geetha',
-      symptoms: 'Chest discomfort & shortness of breath',
-      vitals: 'Temp: 98.4°F | BP: 140/90 | SpO2: 91%',
-      risk: 'High',
-      ashaNotes:
-        'Urgent review requested. SpO2 dropped after walking.',
-      history: 'Hypertension, Smoker.',
-    },
-  ]);
+  // Queue data coming from Supabase triage_cases
+  const [queueCases, setQueueCases] = useState<any[]>([]);
+  const [completedCases, setCompletedCases] = useState<any[]>([]);
+  const [loadingQueue, setLoadingQueue] = useState(false);
 
   // Tracked Referrals
   const [referrals, setReferrals] = useState([
@@ -95,25 +74,153 @@ export default function DoctorDashboardScreen() {
   };
 
   // Prescription
-  const handleIssuePrescription = () => {
-    if (!drugName || !dosage) {
+  const handleIssuePrescription = async () => {
+    if (!drugName.trim() || !dosage.trim()) {
       Alert.alert(
         'Error',
         'Please fill out at least the drug name and dosage.'
       );
       return;
     }
+    if (!selectedCase) {
+      Alert.alert('Error', 'No case selected.');
+      return;
+    }
 
-    Alert.alert(
-      'Prescription Saved',
-      `Structured Rx: ${drugName} (${dosage}) for ${duration}. Sent to ASHA.`
-    );
+    const patientId = selectedCase.patient_id || selectedCase.patientId;
+    if (!patientId) {
+      Alert.alert('Save Failed', 'This case is not linked to a patient account.');
+      return;
+    }
 
-    setDrugName('');
-    setDosage('');
-    setDuration('');
-    setInstructions('');
+    try {
+      const { error: rxError } = await supabase
+        .from('prescriptions')
+        .insert({
+          triage_case_id: selectedCase.id,
+          patient_id: patientId,
+          medicine_name: drugName.trim(),
+          dosage: dosage.trim(),
+          frequency: duration.trim(),
+          duration: duration.trim(),
+          instructions: instructions.trim() || null,
+          doctor_name: 'Tele-Doctor',
+        });
+
+      if (rxError) {
+        console.error('Prescription save error:', rxError);
+        Alert.alert('Save Failed', `${rxError.message}\n\nRun the prescriptions SQL in Supabase first.`);
+        return;
+      }
+
+      const { error: updateErr } = await supabase
+        .from('triage_cases')
+        .update({
+          doctor_notes: instructions.trim() || `Prescribed: ${drugName.trim()} (${dosage.trim()})`,
+          doctor_decision: 'Prescription Issued',
+          status: 'Consultation Completed',
+        })
+        .eq('id', selectedCase.id);
+
+      if (updateErr) {
+        console.error('Triage update error:', updateErr);
+      }
+
+      const submittedPrescription = {
+        medicine_name: drugName.trim(),
+        dosage: dosage.trim(),
+        duration: duration.trim(),
+        frequency: duration.trim(),
+        instructions: instructions.trim(),
+        doctor_name: 'Tele-Doctor',
+        created_at: new Date().toISOString(),
+      };
+      setQueueCases((prev) => prev.map((c) => c.id === selectedCase.id
+        ? { ...c, status: 'Consultation Completed', prescriptions: [...(c.prescriptions || []), submittedPrescription] }
+        : c));
+      setSelectedCase((current: any) => current
+        ? { ...current, status: 'Consultation Completed', prescriptions: [...(current.prescriptions || []), submittedPrescription] }
+        : current);
+      Alert.alert(t('success'), t('prescriptionSuccess'));
+      setDrugName('');
+      setDosage('');
+      setDuration('');
+      setInstructions('');
+    } catch (err) {
+      console.error(err);
+      Alert.alert('Error', 'Failed to save prescription. Check the Supabase table and policies.');
+    }
   };
+
+  const handleCompleteCase = async (caseToComplete = selectedCase) => {
+    if (!caseToComplete) return;
+
+    const { error } = await supabase
+      .from('triage_cases')
+      .update({ status: 'Completed' })
+      .eq('id', caseToComplete.id);
+
+    if (error) {
+      Alert.alert('Failed to complete', 'Failed to complete the case. Please try again.');
+      return;
+    }
+
+    const completedCase = { ...caseToComplete, status: 'Completed' };
+    setQueueCases((prev) => prev.filter((c) => c.id !== caseToComplete.id));
+    setCompletedCases((prev) => [completedCase, ...prev.filter((c) => c.id !== caseToComplete.id)]);
+    setSelectedCase((current: any) => current?.id === caseToComplete.id ? completedCase : current);
+    Alert.alert(t('success'), t('completeSuccess'));
+  };
+
+  // Load triage cases for doctors from Supabase
+  useEffect(() => {
+    let mounted = true;
+
+    const loadQueue = async () => {
+      setLoadingQueue(true);
+      // Fetch cases that are awaiting doctor review
+      const { data, error } = await supabase
+        .from('triage_cases')
+        .select('*, patients(*), prescriptions(*)')
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        console.error('Error loading triage cases:', error);
+        setLoadingQueue(false);
+        return;
+      }
+
+      if (mounted) {
+        const mapped = (data || []).map((d: any) => ({
+          id: d.id,
+          patientName: d.patients?.name || 'Unknown',
+          age: d.age,
+          gender: d.gender,
+          ashaWorker: d.asha_id,
+          symptoms: d.symptoms,
+          vitals: `Temp: ${d.temperature || 'N/A'} | SpO2: ${d.spo2 || 'N/A'}`,
+          risk: d.ai_triage_level || 'Unknown',
+          ashaNotes: d.doctor_notes || '',
+          history: d.patients?.known_conditions || '',
+          patient_id: d.patient_id,
+          status: d.status,
+          prescriptions: d.prescriptions || [],
+        }));
+        setQueueCases(mapped.filter((c: any) => c.status !== 'Completed'));
+        setCompletedCases(mapped.filter((c: any) => c.status === 'Completed'));
+      }
+
+      setLoadingQueue(false);
+    };
+
+    loadQueue();
+    const iv = setInterval(loadQueue, 5000);
+
+    return () => {
+      mounted = false;
+      clearInterval(iv);
+    };
+  }, []);
 
   // Referral
   const handleCreateReferral = () => {
@@ -156,12 +263,13 @@ export default function DoctorDashboardScreen() {
       <View style={styles.header}>
         <View>
           <Text style={styles.title}>
-            Doctor Triage & Operations
+            {t('triageOperations')}
           </Text>
 
           <Text style={styles.subtitle}>
             Unified Rural Health Tele-Link
           </Text>
+          <LanguageSelector />
         </View>
 
         <View style={styles.statusBox}>
@@ -180,6 +288,10 @@ export default function DoctorDashboardScreen() {
             value={isOnline}
             onValueChange={setIsOnline}
           />
+
+          <Pressable onPress={() => router.replace('/' as any)}>
+            <Text style={styles.logoutText}>{t('logout')}</Text>
+          </Pressable>
         </View>
       </View>
 
@@ -203,7 +315,7 @@ export default function DoctorDashboardScreen() {
                 styles.activeSubTabText,
             ]}
           >
-            Queue & Review
+            {t('queueReview')}
           </Text>
         </Pressable>
 
@@ -225,7 +337,7 @@ export default function DoctorDashboardScreen() {
                 styles.activeSubTabText,
             ]}
           >
-            High-Risk Follow-ups
+            {t('followups')}
           </Text>
         </Pressable>
 
@@ -247,7 +359,7 @@ export default function DoctorDashboardScreen() {
                 styles.activeSubTabText,
             ]}
           >
-            Referrals & Past Cases
+            {t('history')}
           </Text>
         </Pressable>
 
@@ -263,7 +375,7 @@ export default function DoctorDashboardScreen() {
           <View>
 
             <Text style={styles.sectionHeader}>
-              Patients Waiting ({queueCases.length}) - Triage Notes Loaded
+              {t('patientsWaiting')} ({queueCases.length})
             </Text>
 
             {queueCases.map((item) => (
@@ -326,9 +438,18 @@ export default function DoctorDashboardScreen() {
                   onPress={() => setSelectedCase(item)}
                 >
                   <Text style={styles.primaryButtonText}>
-                    Review History & Consult
+                    {t('reviewConsult')}
                   </Text>
                 </Pressable>
+
+                {item.status === 'Consultation Completed' && (
+                  <Pressable
+                    style={[styles.primaryButton, { backgroundColor: '#475569' }]}
+                    onPress={() => handleCompleteCase(item)}
+                  >
+                    <Text style={styles.primaryButtonText}>{t('complete')}</Text>
+                  </Pressable>
+                )}
 
               </View>
             ))}
@@ -352,6 +473,12 @@ export default function DoctorDashboardScreen() {
             <Text style={styles.sectionTitle}>
               Consultation: {selectedCase.patientName}
             </Text>
+
+            <View style={[styles.statusFlag, { backgroundColor: selectedCase.status === 'Completed' ? '#dcfce7' : '#fef3c7' }]}>
+              <Text style={{ color: selectedCase.status === 'Completed' ? '#15803d' : '#92400e', fontWeight: 'bold' }}>
+                {t('caseStatus')}: {selectedCase.status === 'Consultation Completed' ? t('submittedPrescription') : selectedCase.status}
+              </Text>
+            </View>
 
             {/* PATIENT HISTORY */}
             <View style={styles.infoBox}>
@@ -423,33 +550,33 @@ export default function DoctorDashboardScreen() {
 
             {/* PRESCRIPTION */}
             <Text style={styles.sectionSubHeader}>
-              Structured Prescription Form
+              {t('prescription')}
             </Text>
 
             <TextInput
               style={styles.input}
-              placeholder="Drug Name (e.g. Amoxicillin)"
+              placeholder={`${t('drug')} (e.g. Amoxicillin)`}
               value={drugName}
               onChangeText={setDrugName}
             />
 
             <TextInput
               style={styles.input}
-              placeholder="Dosage (e.g. 500mg)"
+              placeholder={`${t('dosage')} (e.g. 500mg)`}
               value={dosage}
               onChangeText={setDosage}
             />
 
             <TextInput
               style={styles.input}
-              placeholder="Duration / Frequency (e.g. 5 days, Twice daily)"
+              placeholder={`${t('frequency')} (e.g. 5 days, Twice daily)`}
               value={duration}
               onChangeText={setDuration}
             />
 
             <TextInput
               style={styles.input}
-              placeholder="Special Instructions"
+              placeholder={t('instructions')}
               value={instructions}
               onChangeText={setInstructions}
             />
@@ -460,11 +587,33 @@ export default function DoctorDashboardScreen() {
                 { backgroundColor: '#16a34a' },
               ]}
               onPress={handleIssuePrescription}
+              disabled={selectedCase.status === 'Completed'}
             >
               <Text style={styles.primaryButtonText}>
-                Issue Structured Prescription
+                {selectedCase.status === 'Completed' ? t('prescriptionCompleted') : t('issuePrescription')}
               </Text>
             </Pressable>
+
+            {selectedCase.prescriptions?.length > 0 && (
+              <View style={styles.infoBox}>
+                <Text style={styles.labelText}>{t('submittedPrescription')}:</Text>
+                {selectedCase.prescriptions.map((prescription: any, index: number) => (
+                  <Text key={prescription.id || index} style={styles.valueText}>
+                    {prescription.medicine_name} - {prescription.dosage} - {prescription.duration || prescription.frequency}
+                    {prescription.instructions ? ` (${prescription.instructions})` : ''}
+                  </Text>
+                ))}
+              </View>
+            )}
+
+            {selectedCase.status !== 'Completed' && (
+              <Pressable
+                style={[styles.primaryButton, { backgroundColor: '#475569' }]}
+                onPress={handleCompleteCase}
+              >
+                <Text style={styles.primaryButtonText}>{t('complete')}</Text>
+              </Pressable>
+            )}
 
             {/* REFERRAL */}
             <Text style={styles.sectionSubHeader}>
@@ -615,6 +764,26 @@ export default function DoctorDashboardScreen() {
               Reviewable Past Cases Archive
             </Text>
 
+            {completedCases.map((item) => (
+              <View key={item.id} style={styles.card}>
+                <View style={styles.rowBetween}>
+                  <Text style={styles.cardTitle}>{item.patientName}</Text>
+                  <View style={[styles.badge, { backgroundColor: '#dcfce7' }]}>
+                    <Text style={[styles.badgeText, { color: '#15803d' }]}>{t('completed')}</Text>
+                  </View>
+                </View>
+                <Text style={styles.metaText}>Symptoms: {item.symptoms}</Text>
+                {item.prescriptions?.map((prescription: any, index: number) => (
+                  <Text key={prescription.id || index} style={styles.notesText}>
+                    Prescription: {prescription.medicine_name} ({prescription.dosage})
+                  </Text>
+                ))}
+                <Pressable style={styles.secondaryButton} onPress={() => { setSelectedCase(item); setActiveTab('queue'); }}>
+                  <Text style={styles.secondaryButtonText}>View Case Details</Text>
+                </Pressable>
+              </View>
+            ))}
+
             <View style={styles.card}>
 
               <Text style={styles.cardTitle}>
@@ -680,25 +849,36 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
 
+  logoutText: {
+    fontSize: 12,
+    color: '#dc2626',
+    fontWeight: '600',
+    marginTop: 6,
+  },
+
   tabNav: {
     flexDirection: 'row',
     backgroundColor: '#e2e8f0',
-    padding: 4,
+    paddingHorizontal: 3,
+    paddingVertical: 2,
   },
 
   subTab: {
     flex: 1,
-    paddingVertical: 10,
+    minHeight: 34,
+    paddingVertical: 5,
+    paddingHorizontal: 2,
     alignItems: 'center',
+    justifyContent: 'center',
   },
 
   activeSubTab: {
     backgroundColor: '#ffffff',
-    borderRadius: 6,
+    borderRadius: 4,
   },
 
   subTabText: {
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '600',
     color: '#64748b',
     textAlign: 'center',
@@ -839,6 +1019,21 @@ const styles = StyleSheet.create({
 
   primaryButtonText: {
     color: '#ffffff',
+    fontSize: 13,
+    fontWeight: 'bold',
+  },
+
+  secondaryButton: {
+    borderWidth: 1,
+    borderColor: '#94a3b8',
+    paddingVertical: 10,
+    borderRadius: 6,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+
+  secondaryButtonText: {
+    color: '#475569',
     fontSize: 13,
     fontWeight: 'bold',
   },

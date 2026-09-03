@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { askGemini } from '../lib/gemini';
 import { supabase } from '../lib/supabase';
+import { LanguageSelector, useLanguage } from '../lib/i18n';
 
 // Strips ```json fences (Gemini sometimes wraps JSON in markdown) and parses safely.
 function safeParseJson(raw: string): any | null {
@@ -32,6 +33,7 @@ type Assessment = {
 export default function AshaCompleteDashboard() {
   const { ashaId } = useLocalSearchParams();
   const router = useRouter();
+  const { t } = useLanguage();
 
   // ============================================================
   // ALL HOOKS DECLARED UP FRONT — none of these may sit below a
@@ -51,6 +53,13 @@ export default function AshaCompleteDashboard() {
   // Currently selected Supabase triage case for detail/verification view
   const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
   const activeSupabaseCase = triageCases.find((c) => c.id === selectedCaseId) || triageCases[0];
+  const [draftVitals, setDraftVitals] = useState({
+    temperature: '',
+    bloodPressure: '',
+    spo2: '',
+    heartRate: '',
+    respiratoryRate: '',
+  });
 
   const [geminiResponse, setGeminiResponse] = useState('');
   const [loadingGemini, setLoadingGemini] = useState(false);
@@ -113,6 +122,15 @@ export default function AshaCompleteDashboard() {
     setParsedQuestions([]);
     setAnswers({});
     setAssessment(null);
+    if (activeSupabaseCase) {
+      setDraftVitals({
+        temperature: activeSupabaseCase.temperature == null ? '' : String(activeSupabaseCase.temperature),
+        bloodPressure: activeSupabaseCase.blood_pressure || '',
+        spo2: activeSupabaseCase.spo2 == null ? '' : String(activeSupabaseCase.spo2),
+        heartRate: activeSupabaseCase.heart_rate == null ? '' : String(activeSupabaseCase.heart_rate),
+        respiratoryRate: activeSupabaseCase.respiratory_rate == null ? '' : String(activeSupabaseCase.respiratory_rate),
+      });
+    }
   }, [selectedCaseId]);
 
   // Fetch Live Triage Cases from Supabase
@@ -304,7 +322,6 @@ Return ONLY valid JSON in this exact format:
         throw new Error('Could not parse a valid assessment from Gemini. Try again.');
       }
 
-      setAssessment(parsed);
       const { error: saveError } = await supabase
         .from('triage_cases')
         .update({
@@ -316,8 +333,11 @@ Return ONLY valid JSON in this exact format:
         .eq('id', activeSupabaseCase.id);
 
       if (saveError) {
-        console.log('Error saving AI assessment:', saveError);
+        throw saveError;
       }
+
+      setAssessment(parsed);
+      Alert.alert(t('success'), t('triageSuccess'));
     } catch (error) {
       Alert.alert('Assessment Failed', String(error));
     } finally {
@@ -407,7 +427,14 @@ ${JSON.stringify(data)}
     try {
       const { error } = await supabase
         .from('triage_cases')
-        .update({ status: nextStatus })
+        .update({
+          temperature: draftVitals.temperature === '' ? null : Number(draftVitals.temperature),
+          blood_pressure: draftVitals.bloodPressure || null,
+          spo2: draftVitals.spo2 === '' ? null : Number(draftVitals.spo2),
+          heart_rate: draftVitals.heartRate === '' ? null : Number(draftVitals.heartRate),
+          respiratory_rate: draftVitals.respiratoryRate === '' ? null : Number(draftVitals.respiratoryRate),
+          status: nextStatus,
+        })
         .eq('id', activeSupabaseCase.id);
 
       if (error) throw error;
@@ -417,9 +444,9 @@ ${JSON.stringify(data)}
         prev.map((c) => (c.id === activeSupabaseCase.id ? { ...c, status: nextStatus } : c))
       );
 
-      Alert.alert('Case Verified & Dispatched', `${activeSupabaseCase.patients?.name || 'Patient'}'s verified vitals and notes have been sent to the doctor's queue.`);
+      Alert.alert(t('success'), t('triageSuccess'));
     } catch (err) {
-      Alert.alert('Update Failed', String(err));
+      Alert.alert(t('error'), t('failedSubmit'));
     }
   };
 
@@ -509,10 +536,7 @@ ${JSON.stringify(data)}
       console.log('New patient created:', newPatient);
       console.log('New triage case created:', newCase);
 
-      Alert.alert(
-        'Case Added',
-        'The patient and triage case have been added successfully.'
-      );
+      Alert.alert(t('success'), t('patientDetailsSuccess'));
 
       // Clear the form
       setNewPatientName('');
@@ -545,15 +569,16 @@ ${JSON.stringify(data)}
       {/* Top Header */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.title}>ASHA Field Command Center</Text>
+          <Text style={styles.title}>{t('ashaTitle')}</Text>
           <Text style={styles.subtitle}>Worker: {ashaData.name} | {ashaData.subCenter}</Text>
+          <LanguageSelector />
         </View>
         <View style={styles.headerRight}>
           <View style={styles.offlineBadge}>
             <Text style={styles.offlineText}>⚠ Offline Mode ({ashaData.offlinePendingCount} pending sync)</Text>
           </View>
-          <Pressable onPress={() => router.replace('/asha' as any)}>
-            <Text style={styles.logoutText}>Log Out</Text>
+          <Pressable onPress={() => router.replace('/' as any)}>
+            <Text style={styles.logoutText}>{t('logout')}</Text>
           </Pressable>
         </View>
       </View>
@@ -573,31 +598,31 @@ ${JSON.stringify(data)}
         ))}
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
         {/* ================= 1. HOME TAB ================= */}
         {activeTab === 'home' && (
           <View>
             <View style={styles.card}>
-              <Text style={styles.cardHeader}>Today's Operational Task Summary</Text>
+              <Text style={styles.cardHeader}>{t('operationalSummary')}</Text>
               <View style={styles.metricRow}>
                 <View style={[styles.metricBox, { backgroundColor: '#fef2f2' }]}>
                   <Text style={[styles.metricVal, { color: '#dc2626' }]}>{triageCases.length}</Text>
-                  <Text style={styles.metricLbl}>Total Live Cases</Text>
+                  <Text style={styles.metricLbl}>{t('liveCases')}</Text>
                 </View>
                 <View style={[styles.metricBox, { backgroundColor: '#fef3c7' }]}>
                   <Text style={[styles.metricVal, { color: '#d97706' }]}>
                     {triageCases.filter(c => c.status === 'Pending').length}
                   </Text>
-                  <Text style={styles.metricLbl}>Pending Review</Text>
+                  <Text style={styles.metricLbl}>{t('pendingReview')}</Text>
                 </View>
                 <View style={[styles.metricBox, { backgroundColor: '#f0fdf4' }]}>
                   <Text style={[styles.metricVal, { color: '#16a34a' }]}>4</Text>
-                  <Text style={styles.metricLbl}>Follow-ups Due</Text>
+                  <Text style={styles.metricLbl}>{t('followupsDue')}</Text>
                 </View>
               </View>
               <Pressable style={styles.primaryButton} onPress={() => setActiveTab('triage')}>
-                <Text style={styles.primaryButtonText}>Open Live Triage Queue →</Text>
+                <Text style={styles.primaryButtonText}>{t('triageQueue')} →</Text>
               </Pressable>
               <Pressable
                 style={styles.primaryButton}
@@ -635,7 +660,7 @@ ${JSON.stringify(data)}
               </View>
             )}
             <View style={styles.card}>
-              <Text style={styles.cardHeader}>My Active Supabase Queue</Text>
+              <Text style={styles.cardHeader}>{t('active')} {t('triageQueue')}</Text>
               {triageCases.length === 0 ? (
                 <Text style={styles.emptyText}>No triage cases found in database.</Text>
               ) : (
@@ -667,7 +692,7 @@ ${JSON.stringify(data)}
                         setActiveTab('triage');
                       }}
                     >
-                      <Text style={styles.secondaryButtonText}>🔍 Verify & Analyze in Triage</Text>
+                      <Text style={styles.secondaryButtonText}>🔍 {t('verifyTriage')}</Text>
                     </Pressable>
                   </View>
                 ))
@@ -680,61 +705,67 @@ ${JSON.stringify(data)}
         {activeTab === 'patients' && (
           <View>
             <View style={styles.card}>
-              <Text style={styles.cardHeader}>Add New Patient Case</Text>
+              <Text style={styles.cardHeader}>{t('addCase')}</Text>
 
               <Text style={styles.subtext}>
                 Register a new patient and send their case directly to the triage queue.
               </Text>
 
-              <Text style={styles.vitalLabel}>Patient Name *</Text>
+              <Text style={styles.vitalLabel}>{t('patientName')} *</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Full patient name"
+                placeholder={t('patientName')}
                 value={newPatientName}
                 onChangeText={setNewPatientName}
+                editable={true}
               />
 
-              <Text style={styles.vitalLabel}>Phone Number *</Text>
+              <Text style={styles.vitalLabel}>{t('phone')} *</Text>
               <TextInput
                 style={styles.input}
-                placeholder="10-digit mobile number"
+                placeholder={t('phone')}
                 keyboardType="phone-pad"
                 value={newPatientPhone}
                 onChangeText={setNewPatientPhone}
+                editable={true}
               />
 
-              <Text style={styles.vitalLabel}>Age *</Text>
+              <Text style={styles.vitalLabel}>{t('age')} *</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Patient age"
+                placeholder={t('age')}
                 keyboardType="numeric"
                 value={newPatientAge}
                 onChangeText={setNewPatientAge}
+                editable={true}
               />
 
-              <Text style={styles.vitalLabel}>Gender *</Text>
+              <Text style={styles.vitalLabel}>{t('gender')} *</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Male / Female / Other"
+                placeholder={t('gender')}
                 value={newPatientGender}
                 onChangeText={setNewPatientGender}
+                editable={true}
               />
 
-              <Text style={styles.vitalLabel}>Symptoms *</Text>
+              <Text style={styles.vitalLabel}>{t('symptoms')} *</Text>
               <TextInput
                 style={[styles.input, { minHeight: 70 }]}
-                placeholder="Describe the patient's symptoms"
+                placeholder={t('symptoms')}
                 value={newCaseSymptoms}
                 onChangeText={setNewCaseSymptoms}
                 multiline
+                editable={true}
               />
 
-              <Text style={styles.vitalLabel}>Symptom Duration *</Text>
+              <Text style={styles.vitalLabel}>{t('duration')} *</Text>
               <TextInput
                 style={styles.input}
-                placeholder="e.g., 3 days"
+                placeholder={t('duration')}
                 value={newCaseDuration}
                 onChangeText={setNewCaseDuration}
+                editable={true}
               />
 
               <Pressable
@@ -748,7 +779,7 @@ ${JSON.stringify(data)}
                 <Text style={styles.primaryButtonText}>
                   {addingCase
                     ? 'Adding Case...'
-                    : 'Add Case to Triage Queue'}
+                    : t('addCaseButton')}
                 </Text>
               </Pressable>
             </View>
@@ -795,27 +826,27 @@ ${JSON.stringify(data)}
             {/* Structured Vitals View / Verification Box */}
             {activeSupabaseCase && (
               <View style={styles.card}>
-                <Text style={styles.cardHeader}>Live Vitals Record (From DB)</Text>
+                <Text style={styles.cardHeader}>{t('liveVitals')}</Text>
                 <View style={styles.vitalsGrid}>
                   <View style={styles.vitalInputBox}>
                     <Text style={styles.vitalLabel}>Temp (°C)</Text>
-                    <TextInput style={styles.vitalField} editable={false} value={String(activeSupabaseCase.temperature || '')} />
+                    <TextInput style={styles.vitalField} keyboardType="decimal-pad" value={draftVitals.temperature} onChangeText={(text) => setDraftVitals((prev) => ({ ...prev, temperature: text }))} />
                   </View>
                   <View style={styles.vitalInputBox}>
                     <Text style={styles.vitalLabel}>BP (mmHg)</Text>
-                    <TextInput style={styles.vitalField} editable={false} value={String(activeSupabaseCase.blood_pressure || '')} />
+                    <TextInput style={styles.vitalField} value={draftVitals.bloodPressure} onChangeText={(text) => setDraftVitals((prev) => ({ ...prev, bloodPressure: text }))} />
                   </View>
                   <View style={styles.vitalInputBox}>
                     <Text style={styles.vitalLabel}>SpO₂ (%)</Text>
-                    <TextInput style={styles.vitalField} editable={false} value={String(activeSupabaseCase.spo2 || '')} />
+                    <TextInput style={styles.vitalField} keyboardType="numeric" value={draftVitals.spo2} onChangeText={(text) => setDraftVitals((prev) => ({ ...prev, spo2: text }))} />
                   </View>
                   <View style={styles.vitalInputBox}>
                     <Text style={styles.vitalLabel}>Pulse (bpm)</Text>
-                    <TextInput style={styles.vitalField} editable={false} value={String(activeSupabaseCase.heart_rate || '')} />
+                    <TextInput style={styles.vitalField} keyboardType="numeric" value={draftVitals.heartRate} onChangeText={(text) => setDraftVitals((prev) => ({ ...prev, heartRate: text }))} />
                   </View>
                   <View style={styles.vitalInputBox}>
                     <Text style={styles.vitalLabel}>Resp Rate (/min)</Text>
-                    <TextInput style={styles.vitalField} editable={false} value={String(activeSupabaseCase.respiratory_rate || '')} />
+                    <TextInput style={styles.vitalField} keyboardType="numeric" value={draftVitals.respiratoryRate} onChangeText={(text) => setDraftVitals((prev) => ({ ...prev, respiratoryRate: text }))} />
                   </View>
                 </View>
 
@@ -881,7 +912,7 @@ ${JSON.stringify(data)}
                 )}
 
                 <Pressable style={[styles.primaryButton, { backgroundColor: '#16a34a', marginTop: 12 }]} onPress={handleSubmitVerifiedCase}>
-                  <Text style={styles.primaryButtonText}>✓ Submit Verified Case Status to Doctor Queue</Text>
+                  <Text style={styles.primaryButtonText}>✓ {t('submitDoctor')}</Text>
                 </Pressable>
               </View>
             )}

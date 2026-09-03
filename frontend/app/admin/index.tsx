@@ -12,9 +12,11 @@ import {
   View,
 } from 'react-native';
 import { supabase } from '../lib/supabase';
+import { useLanguage } from '../lib/i18n';
 export default function AshaAuthScreen() {
   
   const router = useRouter();
+  const { t } = useLanguage();
   const [isRegistering, setIsRegistering] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
@@ -207,7 +209,7 @@ const handleAuthAction = async () => {
             <ActivityIndicator color="#ffffff" />
           ) : (
             <Text style={styles.primaryButtonText}>
-              {isRegistering ? 'Submit for Government Verification' : 'Secure Sign In'}
+                {isRegistering ? t('submit') : t('login')}
             </Text>
           )}
         </Pressable>

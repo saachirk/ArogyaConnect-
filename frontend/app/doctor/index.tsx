@@ -11,9 +11,11 @@ import {
     TextInput,
     View,
 } from 'react-native';
+import { useLanguage } from '../lib/i18n';
 
 export default function DoctorAuthScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
 
   const [activeTab, setActiveTab] = useState<'login' | 'register'>(
     'register'
@@ -97,7 +99,7 @@ export default function DoctorAuthScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Doctor Portal</Text>
+        <Text style={styles.title}>{t('doctorPortal')}</Text>
 
         <Text style={styles.subtitle}>
           Verified Clinical & Tele-triage Access
@@ -118,7 +120,7 @@ export default function DoctorAuthScreen() {
                 activeTab === 'login' && styles.activeTabText,
               ]}
             >
-              Log In
+              {t('login')}
             </Text>
           </Pressable>
 
@@ -135,7 +137,7 @@ export default function DoctorAuthScreen() {
                 activeTab === 'register' && styles.activeTabText,
               ]}
             >
-              Register
+              {t('register')}
             </Text>
           </Pressable>
         </View>
@@ -175,7 +177,7 @@ export default function DoctorAuthScreen() {
               onPress={handleLogin}
             >
               <Text style={styles.primaryButtonText}>
-                Log In to Portal
+                {t('doctorLogin')}
               </Text>
             </Pressable>
           </View>
@@ -357,7 +359,7 @@ export default function DoctorAuthScreen() {
               <Text style={styles.primaryButtonText}>
                 {isSubmitting
                   ? 'Application Submitted...'
-                  : 'Submit Registration for Verification'}
+                  : t('doctorRegistration')}
               </Text>
             </Pressable>
 

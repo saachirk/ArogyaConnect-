@@ -9,8 +9,10 @@ import {
   View,
 } from 'react-native';
 import { supabase } from '../lib/supabase';
+import { useLanguage } from '../lib/i18n';
 export default function PatientAuthScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
 
   // Controls which part of the authentication process is shown
   const [authMode, setAuthMode] = useState<'login' | 'register' | 'otp'>(
@@ -37,8 +39,8 @@ export default function PatientAuthScreen() {
   const handleRegisterSubmit = () => {
     if (!name || !phone || !password) {
       Alert.alert(
-        'Missing Information',
-        'Please fill in all required fields.'
+        t('missingDetails'),
+        t('requiredFields')
       );
       return;
     }
@@ -74,7 +76,7 @@ const handleVerifyOtp = async () => {
     console.log('Supabase registration error:', error);
 
     Alert.alert(
-      'Registration Failed',
+      t('error'),
       error.message
     );
 
@@ -96,8 +98,8 @@ const handleLoginSubmit = async () => {
   console.log('LOGIN BUTTON PRESSED');
   if (!loginPhone || !loginPassword) {
     Alert.alert(
-      'Missing Information',
-      'Please enter your phone number and password.'
+      t('missingDetails'),
+      `${t('phone')} and password are required.`
     );
     return;
   }
@@ -113,7 +115,7 @@ const handleLoginSubmit = async () => {
     console.log('Supabase error:', error);
 
     Alert.alert(
-      'Login Failed',
+      t('error'),
       'Phone number or password is incorrect.'
     );
     return;
@@ -161,7 +163,7 @@ const handleLoginSubmit = async () => {
             )}
 
             <Text style={styles.title}>
-              Patient Login
+              {t('patient')} {t('login')}
             </Text>
 
             <Text style={styles.subtitle}>
@@ -170,7 +172,7 @@ const handleLoginSubmit = async () => {
 
             <TextInput
               style={styles.input}
-              placeholder="Phone Number"
+              placeholder={t('phone')}
               keyboardType="phone-pad"
               value={loginPhone}
               onChangeText={setLoginPhone}
@@ -190,7 +192,7 @@ const handleLoginSubmit = async () => {
               onPress={handleLoginSubmit}
             >
               <Text style={styles.primaryButtonText}>
-                Log In
+                {t('login')}
               </Text>
             </Pressable>
 
@@ -217,7 +219,7 @@ const handleLoginSubmit = async () => {
         {authMode === 'register' && (
           <View>
             <Text style={styles.title}>
-              Patient Registration
+              {t('patientDetails')}
             </Text>
 
             <Text style={styles.subtitle}>
@@ -226,7 +228,7 @@ const handleLoginSubmit = async () => {
 
             <TextInput
               style={styles.input}
-              placeholder="Full Name"
+              placeholder={t('patientName')}
               value={name}
               onChangeText={setName}
               autoCapitalize="words"
@@ -234,7 +236,7 @@ const handleLoginSubmit = async () => {
 
             <TextInput
               style={styles.input}
-              placeholder="Phone Number"
+              placeholder={t('phone')}
               keyboardType="phone-pad"
               value={phone}
               onChangeText={setPhone}
@@ -263,7 +265,7 @@ const handleLoginSubmit = async () => {
               onPress={handleRegisterSubmit}
             >
               <Text style={styles.primaryButtonText}>
-                Continue & Send OTP
+                {t('submit')}
               </Text>
             </Pressable>
 

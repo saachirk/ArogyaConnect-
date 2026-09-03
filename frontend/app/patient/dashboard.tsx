@@ -11,10 +11,13 @@ import {
   View,
 } from 'react-native';
 import { supabase } from '../lib/supabase';
+import { useLanguage } from '../lib/i18n';
 
 export default function PatientDashboardScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const { patientId } = useLocalSearchParams();
+  const currentPatientId = Array.isArray(patientId) ? patientId[0] : patientId;
 
   // =========================
   // PATIENT PROFILE DATA
@@ -22,6 +25,7 @@ export default function PatientDashboardScreen() {
 
   const [patientData, setPatientData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [prescriptions, setPrescriptions] = useState<any[]>([]);
 
   // Profile drawer
   const [profileOpen, setProfileOpen] = useState(false);
@@ -79,18 +83,18 @@ export default function PatientDashboardScreen() {
 
   useEffect(() => {
     const fetchPatient = async () => {
-      if (!patientId) {
+      if (!currentPatientId) {
         console.log('No patient ID found.');
         setLoading(false);
         return;
       }
 
-      console.log('Fetching patient:', patientId);
+      console.log('Fetching patient:', currentPatientId);
 
       const { data, error } = await supabase
         .from('patients')
         .select('*')
-        .eq('id', patientId)
+        .eq('id', currentPatientId)
         .single();
 
       if (error) {
@@ -116,7 +120,49 @@ export default function PatientDashboardScreen() {
     };
 
     fetchPatient();
-  }, [patientId]);
+  }, [currentPatientId]);
+
+  useEffect(() => {
+    if (!currentPatientId) return;
+
+    const loadPrescriptions = async () => {
+      const { data, error } = await supabase
+        .from('prescriptions')
+        .select('*')
+        .eq('patient_id', currentPatientId)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Could not load prescriptions:', error);
+        return;
+      }
+
+      setPrescriptions(data || []);
+    };
+
+    loadPrescriptions();
+
+    const pollingId = setInterval(loadPrescriptions, 5000);
+
+    const channel = supabase
+      .channel(`patient-prescriptions-${currentPatientId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'prescriptions',
+          filter: `patient_id=eq.${currentPatientId}`,
+        },
+        loadPrescriptions
+      )
+      .subscribe();
+
+    return () => {
+      clearInterval(pollingId);
+      void supabase.removeChannel(channel);
+    };
+  }, [currentPatientId]);
 
   // =========================
   // CONSULTATION INTAKE
@@ -231,7 +277,7 @@ export default function PatientDashboardScreen() {
     const { data, error } = await supabase
       .from('triage_cases')
       .insert({
-        patient_id: patientId,
+        patient_id: currentPatientId,
         age: patientData.age || null,
         gender: patientData.gender || null,
         symptoms: complaint,
@@ -256,20 +302,14 @@ export default function PatientDashboardScreen() {
         setComplaint('');
     setDuration('');
     setAttachedFileName(null);
-    Alert.alert(
-      'Consultation Requested',
-      'Your case has been submitted to the triage queue.'
-    );
+    Alert.alert(t('success'), t('triageSuccess'));
 
 
 
   } catch (error) {
     console.log('Triage submission error:', error);
 
-    Alert.alert(
-      'Submission Failed',
-      'Could not submit your case to the triage queue.'
-    );
+    Alert.alert(t('error'), t('failedSubmit'));
   }
 };
   // =========================
@@ -298,7 +338,7 @@ export default function PatientDashboardScreen() {
   // =========================
 
   const handleSaveProfile = async () => {
-    if (!patientId) {
+    if (!currentPatientId) {
       return;
     }
 
@@ -329,7 +369,7 @@ export default function PatientDashboardScreen() {
         blood_group: editBloodGroup,
         known_conditions: editConditions,
       })
-      .eq('id', patientId)
+      .eq('id', currentPatientId)
       .select()
       .single();
 
@@ -411,11 +451,11 @@ export default function PatientDashboardScreen() {
 
         <View>
           <Text style={styles.title}>
-            Patient Health Portal
+            {t('patientPortal')}
           </Text>
 
           <Text style={styles.subtitle}>
-            Welcome, {patientData.name}
+            {t('welcome')}, {patientData.name}
           </Text>
         </View>
 
@@ -460,7 +500,7 @@ export default function PatientDashboardScreen() {
         <View style={styles.card}>
 
           <Text style={styles.cardHeader}>
-            Doctor Triage & Call Status
+            {t('triageOperations')}
           </Text>
 
           <View style={styles.queueBox}>
@@ -548,7 +588,7 @@ export default function PatientDashboardScreen() {
         <View style={styles.card}>
 
           <Text style={styles.cardHeader}>
-            Book New Consultation / Request Help
+            {t('patientDetails')}
           </Text>
 
           <Text style={styles.subtext}>
@@ -592,7 +632,7 @@ export default function PatientDashboardScreen() {
             onPress={handleBookConsultation}
           >
             <Text style={styles.primaryButtonText}>
-              Submit to Triage Queue
+              {t('submit')}
             </Text>
           </Pressable>
 
@@ -771,7 +811,7 @@ export default function PatientDashboardScreen() {
         <View style={styles.card}>
 
           <Text style={styles.cardHeader}>
-            Past Health Records & Diagnoses
+            {t('history')}
           </Text>
 
           {workflowData.records.map((rec) => (
@@ -804,6 +844,24 @@ export default function PatientDashboardScreen() {
             </View>
 
           ))}
+
+          {prescriptions.length > 0 && (
+            <>
+              <Text style={[styles.cardHeader, { marginTop: 12 }]}>{t('recentPrescriptions')}</Text>
+
+              {prescriptions.map((p) => (
+                <View key={p.id} style={styles.recordItem}>
+                  <View style={styles.rowBetween}>
+                    <Text style={styles.recordDate}>{new Date(p.created_at).toLocaleDateString()}</Text>
+                    <Text style={styles.doctorText}>{p.doctor_name || 'Doctor'}</Text>
+                  </View>
+
+                  <Text style={styles.diagnosisText}>{t('medicine')}: {p.medicine_name} • {p.dosage}</Text>
+                  <Text style={styles.rxText}>Duration: {p.duration || p.frequency} • Instructions: {p.instructions || '—'}</Text>
+                </View>
+              ))}
+            </>
+          )}
 
           <Text style={styles.autoSyncNote}>
             * Consultations and prescriptions added automatically by system telemetry.

@@ -75,3 +75,43 @@ create table public.triage_cases (
   constraint triage_cases_doctor_id_fkey foreign KEY (doctor_id) references doctors (id),
   constraint triage_cases_patient_id_fkey foreign KEY (patient_id) references patients (id)
 ) TABLESPACE pg_default;
+
+create table if not exists public.prescriptions (
+  id uuid not null default gen_random_uuid(),
+  triage_case_id uuid not null,
+  patient_id uuid not null,
+  doctor_id uuid null,
+  doctor_name text null,
+  medicine_name text not null,
+  dosage text not null,
+  frequency text null,
+  duration text null,
+  instructions text null,
+  status text not null default 'ISSUED',
+  created_at timestamp with time zone not null default now(),
+  constraint prescriptions_pkey primary key (id),
+  constraint prescriptions_triage_case_id_fkey foreign KEY (triage_case_id) references triage_cases (id),
+  constraint prescriptions_patient_id_fkey foreign KEY (patient_id) references patients (id),
+  constraint prescriptions_doctor_id_fkey foreign KEY (doctor_id) references doctors (id)
+) TABLESPACE pg_default;
+
+alter table public.prescriptions enable row level security;
+
+drop policy if exists "prescriptions prototype access" on public.prescriptions;
+create policy "prescriptions prototype access"
+  on public.prescriptions for all
+  using (true)
+  with check (true);
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'prescriptions'
+  ) then
+    alter publication supabase_realtime add table public.prescriptions;
+  end if;
+end $$;

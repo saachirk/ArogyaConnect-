@@ -2,10 +2,11 @@ import NetInfo from '@react-native-community/netinfo';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Language, useLanguage } from './lib/i18n';
 
 export default function HomeScreen() {
   const router = useRouter();
-  const [selectedLang, setSelectedLang] = useState<'mr' | 'hi' | 'en'>('en');
+  const { language, setLanguage, t } = useLanguage();
   const [isOnline, setIsOnline] = useState<boolean>(true);
 
   // Listen to network status changes in real time
@@ -26,7 +27,7 @@ export default function HomeScreen() {
         <View style={styles.statusBadge}>
           <View style={[styles.statusDot, { backgroundColor: isOnline ? '#2e7d32' : '#d32f2f' }]} />
           <Text style={styles.statusText}>
-            {isOnline ? 'Online Sync Active' : 'Offline Mode (Local Storage)'}
+            {isOnline ? t('online') : t('offline')}
           </Text>
         </View>
 
@@ -42,45 +43,45 @@ export default function HomeScreen() {
         </Text>
 
         <Text style={styles.question}>
-          Who are you?
+          {t('whoAreYou')}
         </Text>
 
         {/* Navigates to app/patient */}
         <Pressable style={styles.button} onPress={() => router.push('/patient' as any)}>
-          <Text style={styles.buttonText}>Patient</Text>
+          <Text style={styles.buttonText}>{t('patient')}</Text>
         </Pressable>
 
         {/* Navigates to app/admin (or app/asha) */}
         <Pressable style={styles.button} onPress={() => router.push('/admin' as any)}>
-          <Text style={styles.buttonText}>ASHA / ANM Worker</Text>
+          <Text style={styles.buttonText}>{t('worker')}</Text>
         </Pressable>
 
         {/* Navigates to app/doctor */}
         <Pressable style={styles.button} onPress={() => router.push('/doctor' as any)}>
-          <Text style={styles.buttonText}>Doctor</Text>
+          <Text style={styles.buttonText}>{t('doctor')}</Text>
         </Pressable>
 
         {/* Language Switcher */}
         <View style={styles.langContainer}>
-          <Pressable onPress={() => setSelectedLang('mr')}>
-            <Text style={[styles.langText, selectedLang === 'mr' && styles.activeLang]}>मराठी</Text>
-          </Pressable>
-          <Text style={styles.langDivider}>|</Text>
-          <Pressable onPress={() => setSelectedLang('hi')}>
-            <Text style={[styles.langText, selectedLang === 'hi' && styles.activeLang]}>हिंदी</Text>
-          </Pressable>
-          <Text style={styles.langDivider}>|</Text>
-          <Pressable onPress={() => setSelectedLang('en')}>
-            <Text style={[styles.langText, selectedLang === 'en' && styles.activeLang]}>English</Text>
-          </Pressable>
+          <Text style={styles.languageLabel}>{t('language')}: </Text>
+          {(['en', 'hi', 'mr', 'kn'] as Language[]).map((option, index) => (
+            <React.Fragment key={option}>
+              {index > 0 && <Text style={styles.langDivider}>|</Text>}
+              <Pressable onPress={() => setLanguage(option)}>
+                <Text style={[styles.langText, language === option && styles.activeLang]}>
+                  {t(option === 'en' ? 'english' : option === 'hi' ? 'hindi' : option === 'mr' ? 'marathi' : 'kannada')}
+                </Text>
+              </Pressable>
+            </React.Fragment>
+          ))}
         </View>
 
         <Text style={styles.security}>
-          🔒 Secure & Private
+          🔒 {t('secure')}
         </Text>
 
         <Text style={styles.legal}>
-          Privacy Policy  ·  Terms
+          {t('privacy')}
         </Text>
 
       </View>
@@ -180,6 +181,13 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#64748b',
     paddingHorizontal: 6,
+  },
+
+  languageLabel: {
+    fontSize: 15,
+    color: '#334155',
+    fontWeight: '600',
+    marginRight: 4,
   },
 
   activeLang: {
