@@ -133,16 +133,6 @@ const handleLoginSubmit = async () => {
     <View style={styles.container}>
       <View style={styles.card}>
 
-        {/* BACK TO HOME */}
-        <Pressable
-          onPress={() => router.replace('/' as any)}
-          style={styles.backLink}
-        >
-          <Text style={styles.backText}>
-            ← Back to Home
-          </Text>
-        </Pressable>
-
         {/* ========================= */}
         {/* LOGIN */}
         {/* ========================= */}
@@ -161,6 +151,10 @@ const handleLoginSubmit = async () => {
                 </Text>
               </View>
             )}
+
+            <Text style={styles.badge}>
+              Government Tele-Health Field Portal
+            </Text>
 
             <Text style={styles.title}>
               {t('patient')} {t('login')}
@@ -218,6 +212,10 @@ const handleLoginSubmit = async () => {
         {/* ========================= */}
         {authMode === 'register' && (
           <View>
+            <Text style={styles.badge}>
+              Government Tele-Health Field Portal
+            </Text>
+
             <Text style={styles.title}>
               {t('patientDetails')}
             </Text>
@@ -288,6 +286,10 @@ const handleLoginSubmit = async () => {
         {/* ========================= */}
         {authMode === 'otp' && (
           <View>
+            <Text style={styles.badge}>
+              Government Tele-Health Field Portal
+            </Text>
+
             <Text style={styles.title}>
               Verify Phone Number
             </Text>
@@ -325,134 +327,158 @@ const handleLoginSubmit = async () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#f3f7fa',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: 24,
   },
 
   card: {
     width: '100%',
-    maxWidth: 400,
+    maxWidth: 500,
     backgroundColor: '#ffffff',
-    padding: 24,
-    borderRadius: 12,
+    padding: 32,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: '#d9e3ea',
 
-    // Works on mobile
-    elevation: 2,
-
-    // Works on web and is ignored safely where unsupported
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
+    shadowColor: '#123b5d',
+    shadowOpacity: 0.08,
+    shadowRadius: 18,
+    shadowOffset: {
+      width: 0,
+      height: 6,
+    },
+    elevation: 4,
   },
 
   backLink: {
-    marginBottom: 16,
+    alignSelf: 'flex-start',
+    marginBottom: 24,
+    paddingVertical: 4,
   },
 
   backText: {
-    fontSize: 13,
-    color: '#64748b',
+    fontSize: 14,
+    color: '#45657f',
     fontWeight: '600',
   },
 
+  badge: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#087bb5',
+    textTransform: 'uppercase',
+    letterSpacing: 0.7,
+    marginBottom: 8,
+  },
+
   title: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#0f172a',
-    marginBottom: 4,
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#143b61',
+    marginBottom: 7,
   },
 
   subtitle: {
-    fontSize: 13,
-    color: '#64748b',
-    marginBottom: 20,
+    fontSize: 14,
+    color: '#698096',
+    lineHeight: 21,
+    marginBottom: 25,
   },
 
   input: {
+    width: '100%',
     backgroundColor: '#f8fafc',
     borderWidth: 1,
-    borderColor: '#cbd5e1',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: '#0f172a',
-    marginBottom: 12,
+    borderColor: '#cbd9e3',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    fontSize: 15,
+    color: '#122f4d',
+    marginBottom: 15,
   },
 
   otpInput: {
+    width: '100%',
     backgroundColor: '#f8fafc',
     borderWidth: 1,
-    borderColor: '#cbd5e1',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 14,
-    fontSize: 22,
-    color: '#0f172a',
-    marginBottom: 12,
-    letterSpacing: 8,
+    borderColor: '#cbd9e3',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 15,
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#143b61',
+    marginBottom: 15,
+    letterSpacing: 10,
   },
 
   primaryButton: {
-    backgroundColor: '#0284c7',
-    paddingVertical: 12,
-    borderRadius: 8,
+    width: '100%',
+    backgroundColor: '#0788c5',
+    paddingVertical: 14,
+    borderRadius: 10,
     alignItems: 'center',
-    marginTop: 8,
+    justifyContent: 'center',
+    marginTop: 7,
+    minHeight: 50,
   },
 
   verifyButton: {
-    backgroundColor: '#16a34a',
-    paddingVertical: 12,
-    borderRadius: 8,
+    width: '100%',
+    backgroundColor: '#0d9488',
+    paddingVertical: 14,
+    borderRadius: 10,
     alignItems: 'center',
-    marginTop: 8,
+    justifyContent: 'center',
+    marginTop: 7,
+    minHeight: 50,
   },
 
   primaryButtonText: {
     color: '#ffffff',
     fontSize: 15,
-    fontWeight: 'bold',
+    fontWeight: '800',
+    textAlign: 'center',
   },
 
   switchRow: {
-    marginTop: 16,
+    marginTop: 20,
     alignItems: 'center',
+    paddingVertical: 5,
   },
 
   switchText: {
-    fontSize: 13,
-    color: '#64748b',
+    fontSize: 14,
+    color: '#698096',
   },
 
   linkText: {
-    color: '#0284c7',
-    fontWeight: 'bold',
+    color: '#087bb5',
+    fontWeight: '800',
   },
 
   successMessage: {
-    backgroundColor: '#dcfce7',
+    backgroundColor: '#edf9f7',
     borderWidth: 1,
-    borderColor: '#86efac',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 20,
+    borderColor: '#bfe6df',
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 22,
   },
 
   successTitle: {
-    color: '#166534',
+    color: '#08766c',
     fontSize: 15,
-    fontWeight: 'bold',
-    marginBottom: 4,
+    fontWeight: '800',
+    marginBottom: 5,
   },
 
   successText: {
-    color: '#166534',
+    color: '#426477',
     fontSize: 13,
-    lineHeight: 18,
+    lineHeight: 19,
   },
 });

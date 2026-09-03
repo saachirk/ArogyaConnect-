@@ -231,19 +231,121 @@ const handleAuthAction = async () => {
     </ScrollView>
   );
 }
-
 const styles = StyleSheet.create({
-  container: { flexGrow: 1, backgroundColor: '#f8fafc', justifyContent: 'center', padding: 16 },
-  card: { backgroundColor: '#ffffff', borderRadius: 12, padding: 24, maxWidth: 450, width: '100%', alignSelf: 'center', borderWidth: 1, borderColor: '#e2e8f0', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, elevation: 2 },
-  badge: { fontSize: 11, fontWeight: 'bold', color: '#0d9488', textTransform: 'uppercase', marginBottom: 4 },
-  title: { fontSize: 22, fontWeight: 'bold', color: '#0f172a', marginBottom: 4 },
-  subtitle: { fontSize: 13, color: '#64748b', marginBottom: 20 },
-  banner: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f0fdfa', borderWidth: 1, borderColor: '#ccfbf1', padding: 12, borderRadius: 8, marginBottom: 16 },
-  bannerText: { fontSize: 12, color: '#0f766e', fontWeight: '600', flex: 1 },
-  label: { fontSize: 12, fontWeight: '600', color: '#334155', marginBottom: 6 },
-  input: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 11, fontSize: 14, color: '#0f172a', marginBottom: 14 },
-  primaryButton: { backgroundColor: '#0d9488', paddingVertical: 12, borderRadius: 8, alignItems: 'center', marginTop: 6 },
-  primaryButtonText: { color: '#ffffff', fontSize: 14, fontWeight: 'bold' },
-  switchButton: { marginTop: 16, alignItems: 'center' },
-  switchButtonText: { color: '#0284c7', fontSize: 13, fontWeight: '600' },
+  container: {
+    flexGrow: 1,
+    minHeight: '100%',
+    backgroundColor: '#f3f7fa',
+    justifyContent: 'center',
+    padding: 24,
+  },
+
+  card: {
+    width: '100%',
+    maxWidth: 520,
+    alignSelf: 'center',
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 32,
+    borderWidth: 1,
+    borderColor: '#d9e3ea',
+
+    shadowColor: '#123b5d',
+    shadowOpacity: 0.08,
+    shadowRadius: 18,
+    shadowOffset: {
+      width: 0,
+      height: 6,
+    },
+    elevation: 4,
+  },
+
+  badge: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#0d8f83',
+    textTransform: 'uppercase',
+    letterSpacing: 0.7,
+    marginBottom: 8,
+  },
+
+  title: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#143b61',
+    marginBottom: 6,
+  },
+
+  subtitle: {
+    fontSize: 14,
+    color: '#698096',
+    lineHeight: 21,
+    marginBottom: 26,
+  },
+
+  banner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#edf9f7',
+    borderWidth: 1,
+    borderColor: '#c8ebe5',
+    padding: 13,
+    borderRadius: 10,
+    marginBottom: 18,
+  },
+
+  bannerText: {
+    fontSize: 13,
+    color: '#08766c',
+    fontWeight: '600',
+    flex: 1,
+  },
+
+  label: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#183d60',
+    marginBottom: 7,
+    marginTop: 4,
+  },
+
+  input: {
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#cbd9e3',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    fontSize: 15,
+    color: '#122f4d',
+    marginBottom: 17,
+  },
+
+  primaryButton: {
+    backgroundColor: '#0d9488',
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 6,
+    minHeight: 50,
+  },
+
+  primaryButtonText: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+
+  switchButton: {
+    marginTop: 20,
+    alignItems: 'center',
+    paddingVertical: 5,
+  },
+
+  switchButtonText: {
+    color: '#087bb5',
+    fontSize: 14,
+    fontWeight: '700',
+  },
 });

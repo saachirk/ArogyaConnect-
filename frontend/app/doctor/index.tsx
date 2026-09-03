@@ -2,14 +2,15 @@ import * as DocumentPicker from 'expo-document-picker';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-    Alert,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Switch,
-    Text,
-    TextInput,
-    View,
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
 import { useLanguage } from '../lib/i18n';
 
@@ -17,36 +18,25 @@ export default function DoctorAuthScreen() {
   const router = useRouter();
   const { t } = useLanguage();
 
-  const [activeTab, setActiveTab] = useState<'login' | 'register'>(
-    'register'
-  );
+  // Login comes first
+  const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
 
-  // Form State
   const [fullName, setFullName] = useState('');
   const [specialty, setSpecialty] = useState('');
   const [councilRegNo, setCouncilRegNo] = useState('');
   const [mobileNo, setMobileNo] = useState('');
   const [email, setEmail] = useState('');
+  const [selectedFile, setSelectedFile] = useState<string | null>(null);
 
-  // Document Picker State
-  const [selectedFile, setSelectedFile] = useState<{
-    name: string;
-    uri: string;
-  } | null>(null);
-
-  // Clinic Details
   const [hasClinic, setHasClinic] = useState(false);
   const [clinicDetails, setClinicDetails] = useState('');
 
-  // Volunteering Details
   const [isVolunteer, setIsVolunteer] = useState(false);
-  const [volunteerRadius, setVolunteerRadius] = useState('10 km');
+  const [volunteerRadius, setVolunteerRadius] = useState('');
 
-  // Legal / Ethical Self-Declaration
   const [hasLegalHistory, setHasLegalHistory] = useState(false);
   const [legalExplanation, setLegalExplanation] = useState('');
 
-  // Submission State
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handlePickDocument = async () => {
@@ -56,109 +46,122 @@ export default function DoctorAuthScreen() {
         copyToCacheDirectory: true,
       });
 
-      if (
-        !result.canceled &&
-        result.assets &&
-        result.assets.length > 0
-      ) {
-        const file = result.assets[0];
-
-        setSelectedFile({
-          name: file.name,
-          uri: file.uri,
-        });
+      if (!result.canceled && result.assets?.length > 0) {
+        setSelectedFile(result.assets[0].name);
       }
     } catch (error) {
+      console.log('Document picker error:', error);
+      Alert.alert('Error', 'Could not select the document.');
+    }
+  };
+
+  const handleLogin = async () => {
+    if (!councilRegNo || !mobileNo) {
       Alert.alert(
-        'Error',
-        'Could not open document picker.'
+        'Missing Details',
+        'Please enter your registration number and mobile number.'
+      );
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      setTimeout(() => {
+        setIsSubmitting(false);
+        router.replace('/doctor/dashboard' as any);
+      }, 1000);
+    } catch (error) {
+      console.log('Doctor login error:', error);
+      setIsSubmitting(false);
+      Alert.alert('Login Failed', 'Could not complete login.');
+    }
+  };
+
+  const handleRegister = async () => {
+    if (
+      !fullName ||
+      !specialty ||
+      !councilRegNo ||
+      !mobileNo ||
+      !email
+    ) {
+      Alert.alert(
+        'Missing Details',
+        'Please fill in all required professional details.'
+      );
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      setTimeout(() => {
+        setIsSubmitting(false);
+
+        Alert.alert(
+          'Registration Submitted',
+          'Your registration has been submitted for verification.'
+        );
+
+        setActiveTab('login');
+      }, 1000);
+    } catch (error) {
+      console.log('Doctor registration error:', error);
+      setIsSubmitting(false);
+      Alert.alert(
+        'Registration Failed',
+        'Could not complete registration.'
       );
     }
   };
 
-  const handleRegister = () => {
-    // Prevent multiple clicks
-    if (isSubmitting) {
-      return;
-    }
-
-    // Show submitted state
-    setIsSubmitting(true);
-
-    // Wait 2 seconds, then return to the main app screen
-    setTimeout(() => {
-      router.replace('/');
-    }, 5000);
-  };
-
-  const handleLogin = () => {
-    router.replace('/doctor/dashboard' as any);
-    
-  };
-
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>{t('doctorPortal')}</Text>
+    <ScrollView
+      contentContainerStyle={styles.container}
+      keyboardShouldPersistTaps="handled"
+    >
+      <View style={styles.card}>
 
-        <Text style={styles.subtitle}>
-          Verified Clinical & Tele-triage Access
-        </Text>
-
-        {/* Tab Switcher */}
-        <View style={styles.tabContainer}>
-          <Pressable
-            style={[
-              styles.tab,
-              activeTab === 'login' && styles.activeTab,
-            ]}
-            onPress={() => setActiveTab('login')}
-          >
-            <Text
-              style={[
-                styles.tabText,
-                activeTab === 'login' && styles.activeTabText,
-              ]}
-            >
-              {t('login')}
+        {/* LOGIN */}
+        {activeTab === 'login' && (
+          <View>
+            <Text style={styles.badge}>
+              Government Tele-Health Field Portal
             </Text>
-          </Pressable>
 
-          <Pressable
-            style={[
-              styles.tab,
-              activeTab === 'register' && styles.activeTab,
-            ]}
-            onPress={() => setActiveTab('register')}
-          >
-            <Text
-              style={[
-                styles.tabText,
-                activeTab === 'register' && styles.activeTabText,
-              ]}
-            >
-              {t('register')}
+            <Text style={styles.title}>
+              Doctor Login
             </Text>
-          </Pressable>
-        </View>
-      </View>
 
-      <ScrollView
-        contentContainerStyle={styles.formScroll}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
-        {activeTab === 'login' ? (
-          /* LOGIN FORM */
-          <View style={styles.section}>
+            <Text style={styles.subtitle}>
+              Sign in to access your doctor dashboard
+            </Text>
+
             <Text style={styles.label}>
-              Medical Council Registration No. / Mobile
+              Medical Council Registration No.
             </Text>
 
             <TextInput
               style={styles.input}
-              placeholder="e.g. 123"
-              defaultValue="123"
+              placeholder="Enter registration number"
+              value={councilRegNo}
+              onChangeText={setCouncilRegNo}
+              autoCapitalize="characters"
+              editable={!isSubmitting}
+            />
+
+            <Text style={styles.label}>
+              Registered Mobile Number
+            </Text>
+
+            <TextInput
+              style={styles.input}
+              placeholder="10-digit mobile number"
+              keyboardType="phone-pad"
+              value={mobileNo}
+              onChangeText={setMobileNo}
+              editable={!isSubmitting}
             />
 
             <Text style={styles.label}>
@@ -167,24 +170,57 @@ export default function DoctorAuthScreen() {
 
             <TextInput
               style={styles.input}
-              placeholder="••••••••"
+              placeholder="Enter password or OTP"
               secureTextEntry
-              defaultValue="123"
+              editable={!isSubmitting}
             />
 
             <Pressable
-              style={styles.primaryButton}
+              style={[
+                styles.primaryButton,
+                isSubmitting && styles.disabledButton,
+              ]}
               onPress={handleLogin}
+              disabled={isSubmitting}
             >
-              <Text style={styles.primaryButtonText}>
-                {t('doctorLogin')}
-              </Text>
+              {isSubmitting ? (
+                <ActivityIndicator color="#ffffff" />
+              ) : (
+                <Text style={styles.primaryButtonText}>
+                  {t('login')}
+                </Text>
+              )}
             </Pressable>
+
+            {!isSubmitting && (
+              <Pressable
+                style={styles.switchButton}
+                onPress={() => setActiveTab('register')}
+              >
+                <Text style={styles.switchButtonText}>
+                  New doctor? Register here
+                </Text>
+              </Pressable>
+            )}
           </View>
-        ) : (
-          /* REGISTRATION FORM */
-          <View style={styles.section}>
-            <Text style={styles.sectionHeader}>
+        )}
+
+        {/* REGISTER */}
+        {activeTab === 'register' && (
+          <View>
+            <Text style={styles.badge}>
+              Government Tele-Health Field Portal
+            </Text>
+
+            <Text style={styles.title}>
+              Doctor Registration
+            </Text>
+
+            <Text style={styles.subtitle}>
+              Register as a verified medical professional
+            </Text>
+
+            <Text style={styles.sectionNumber}>
               1. Professional Identity
             </Text>
 
@@ -194,10 +230,10 @@ export default function DoctorAuthScreen() {
 
             <TextInput
               style={styles.input}
-              placeholder="Dr. A"
+              placeholder="e.g., Dr. Ananya Sharma"
               value={fullName}
               onChangeText={setFullName}
-              autoCapitalize="words"
+              editable={!isSubmitting}
             />
 
             <Text style={styles.label}>
@@ -206,9 +242,10 @@ export default function DoctorAuthScreen() {
 
             <TextInput
               style={styles.input}
-              placeholder="MBBS"
+              placeholder="e.g., MBBS, General Medicine"
               value={specialty}
               onChangeText={setSpecialty}
+              editable={!isSubmitting}
             />
 
             <Text style={styles.label}>
@@ -217,373 +254,404 @@ export default function DoctorAuthScreen() {
 
             <TextInput
               style={styles.input}
-              placeholder="123"
+              placeholder="Enter council registration number"
               value={councilRegNo}
               onChangeText={setCouncilRegNo}
               autoCapitalize="characters"
+              editable={!isSubmitting}
             />
 
             <Text style={styles.label}>
-              Mobile Number (for SMS Verification Alerts)
+              Mobile Number
             </Text>
 
             <TextInput
               style={styles.input}
-              placeholder="9876543210"
+              placeholder="10-digit mobile number"
               keyboardType="phone-pad"
               value={mobileNo}
               onChangeText={setMobileNo}
+              editable={!isSubmitting}
             />
 
             <Text style={styles.label}>
-              Email Address
+              Email
             </Text>
 
             <TextInput
               style={styles.input}
-              placeholder="test@test.com"
+              placeholder="doctor@example.com"
               keyboardType="email-address"
               autoCapitalize="none"
               value={email}
               onChangeText={setEmail}
+              editable={!isSubmitting}
             />
 
             <Text style={styles.label}>
               Upload Medical Registration / Degree Certificate
-              (Optional for quick test)
             </Text>
 
             <Pressable
-              style={[
-                styles.uploadBox,
-                selectedFile
-                  ? styles.uploadBoxSuccess
-                  : null,
-              ]}
+              style={styles.uploadButton}
               onPress={handlePickDocument}
+              disabled={isSubmitting}
             >
-              <Text style={styles.uploadText}>
-                {selectedFile
-                  ? `✓ Attached: ${selectedFile.name}`
-                  : '📄 Tap to Select Certificate (or skip)'}
+              <Text style={styles.uploadIcon}>
+                ↑
               </Text>
+
+              <View style={styles.uploadTextContainer}>
+                <Text style={styles.uploadTitle}>
+                  {selectedFile
+                    ? selectedFile
+                    : 'Choose PDF, JPG or PNG'}
+                </Text>
+
+                <Text style={styles.uploadSubtitle}>
+                  Optional for quick test
+                </Text>
+              </View>
             </Pressable>
 
-            <Text style={styles.sectionHeader}>
+            <Text style={styles.sectionNumber}>
               2. Clinical Practice & Availability
             </Text>
 
             <View style={styles.switchRow}>
-              <Text style={styles.switchLabel}>
-                Do you operate a private clinic?
-              </Text>
+              <View style={styles.switchTextContainer}>
+                <Text style={styles.switchLabel}>
+                  I have a private clinic
+                </Text>
+
+                <Text style={styles.switchDescription}>
+                  Provide clinic details for patient access
+                </Text>
+              </View>
 
               <Switch
                 value={hasClinic}
                 onValueChange={setHasClinic}
+                trackColor={{
+                  false: '#cbd5e1',
+                  true: '#80cbc4',
+                }}
+                thumbColor={
+                  hasClinic ? '#0d9488' : '#f4f4f5'
+                }
               />
             </View>
 
             {hasClinic && (
               <TextInput
-                style={[styles.input, styles.textArea]}
-                placeholder="Clinic details"
-                multiline
-                numberOfLines={3}
+                style={[
+                  styles.input,
+                  styles.multilineInput,
+                ]}
+                placeholder="Enter clinic name, address and timings"
                 value={clinicDetails}
                 onChangeText={setClinicDetails}
+                multiline
+                numberOfLines={3}
+                editable={!isSubmitting}
               />
             )}
 
             <View style={styles.switchRow}>
-              <Text style={styles.switchLabel}>
-                Available for Rural Field Volunteering?
-              </Text>
+              <View style={styles.switchTextContainer}>
+                <Text style={styles.switchLabel}>
+                  Available for rural field volunteering
+                </Text>
+
+                <Text style={styles.switchDescription}>
+                  Help patients in underserved areas
+                </Text>
+              </View>
 
               <Switch
                 value={isVolunteer}
                 onValueChange={setIsVolunteer}
+                trackColor={{
+                  false: '#cbd5e1',
+                  true: '#80cbc4',
+                }}
+                thumbColor={
+                  isVolunteer ? '#0d9488' : '#f4f4f5'
+                }
               />
             </View>
 
             {isVolunteer && (
-              <View>
-                <Text style={styles.label}>
-                  Max Travel Distance
-                </Text>
-
-                <TextInput
-                  style={styles.input}
-                  value={volunteerRadius}
-                  onChangeText={setVolunteerRadius}
-                />
-              </View>
+              <TextInput
+                style={styles.input}
+                placeholder="Maximum travel distance, e.g. 20 km"
+                value={volunteerRadius}
+                onChangeText={setVolunteerRadius}
+                editable={!isSubmitting}
+              />
             )}
 
-            <Text style={styles.sectionHeader}>
+            <Text style={styles.sectionNumber}>
               3. Conduct & Legal Declarations
             </Text>
 
             <View style={styles.switchRow}>
-              <Text style={styles.switchLabel}>
-                Any prior license suspensions?
-              </Text>
+              <View style={styles.switchTextContainer}>
+                <Text style={styles.switchLabel}>
+                  Previous license suspension or legal history
+                </Text>
+
+                <Text style={styles.switchDescription}>
+                  Declare any relevant professional history
+                </Text>
+              </View>
 
               <Switch
                 value={hasLegalHistory}
                 onValueChange={setHasLegalHistory}
+                trackColor={{
+                  false: '#cbd5e1',
+                  true: '#80cbc4',
+                }}
+                thumbColor={
+                  hasLegalHistory
+                    ? '#0d9488'
+                    : '#f4f4f5'
+                }
               />
             </View>
 
             {hasLegalHistory && (
               <TextInput
-                style={[styles.input, styles.textArea]}
-                placeholder="Provide details"
-                multiline
-                numberOfLines={3}
+                style={[
+                  styles.input,
+                  styles.multilineInput,
+                ]}
+                placeholder="Please provide an explanation"
                 value={legalExplanation}
                 onChangeText={setLegalExplanation}
+                multiline
+                numberOfLines={3}
+                editable={!isSubmitting}
               />
             )}
 
-            {/* SUBMIT BUTTON */}
             <Pressable
-              style={({ pressed }) => [
+              style={[
                 styles.primaryButton,
-                pressed && styles.buttonPressed,
                 isSubmitting && styles.disabledButton,
               ]}
               onPress={handleRegister}
               disabled={isSubmitting}
             >
-              <Text style={styles.primaryButtonText}>
-                {isSubmitting
-                  ? 'Application Submitted...'
-                  : t('doctorRegistration')}
-              </Text>
+              {isSubmitting ? (
+                <ActivityIndicator color="#ffffff" />
+              ) : (
+                <Text style={styles.primaryButtonText}>
+                  Submit Registration
+                </Text>
+              )}
             </Pressable>
 
-            {/* SUBMISSION MESSAGE */}
-            {isSubmitting && (
-              <View style={styles.submissionMessage}>
-                <Text style={styles.submissionTitle}>
-                  Application Submitted
+            {!isSubmitting && (
+              <Pressable
+                style={styles.switchButton}
+                onPress={() => setActiveTab('login')}
+              >
+                <Text style={styles.switchButtonText}>
+                  Already registered? Sign in here
                 </Text>
-
-                <Text style={styles.submissionText}>
-                  Your registration has been submitted for verification.
-                  Please wait for SMS and email confirmation.
-                </Text>
-              </View>
+              </Pressable>
             )}
           </View>
         )}
-      </ScrollView>
-    </View>
+      </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
+  /* EXACT ASHA PAGE SIZING */
   container: {
-    flex: 1,
-    backgroundColor: '#f8fafc',
+    flexGrow: 1,
+    minHeight: '100%',
+    backgroundColor: '#f3f7fa',
+    justifyContent: 'center',
+    padding: 24,
   },
 
-  header: {
-    paddingTop: 50,
-    paddingHorizontal: 20,
-    paddingBottom: 16,
+  card: {
+    width: '100%',
+    maxWidth: 520,
+    alignSelf: 'center',
     backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    borderRadius: 16,
+    padding: 32,
+    borderWidth: 1,
+    borderColor: '#d9e3ea',
+
+    shadowColor: '#123b5d',
+    shadowOpacity: 0.08,
+    shadowRadius: 18,
+    shadowOffset: {
+      width: 0,
+      height: 6,
+    },
+    elevation: 4,
+  },
+
+  /* SAME ASHA FONT */
+  badge: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#7002de',
+    textTransform: 'uppercase',
+    letterSpacing: 0.7,
+    marginBottom: 8,
   },
 
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#0f172a',
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#143b61',
+    marginBottom: 6,
   },
 
   subtitle: {
     fontSize: 14,
-    color: '#64748b',
-    marginTop: 2,
-    marginBottom: 16,
+    color: '#698096',
+    lineHeight: 21,
+    marginBottom: 26,
   },
 
-  tabContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#f1f5f9',
-    borderRadius: 8,
-    padding: 4,
-  },
-
-  tab: {
-    flex: 1,
-    paddingVertical: 8,
-    alignItems: 'center',
-    borderRadius: 6,
-  },
-
-  activeTab: {
-    backgroundColor: '#ffffff',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-
-  tabText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#64748b',
-  },
-
-  activeTabText: {
-    color: '#0284c7',
-  },
-
-  formScroll: {
-    padding: 20,
-    width: '100%',
-    maxWidth: 900,
-    alignSelf: 'center',
-  },
-
-  section: {
-    backgroundColor: '#ffffff',
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-  },
-
-  sectionHeader: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#0f172a',
-    marginTop: 12,
-    marginBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
-    paddingBottom: 6,
+  sectionNumber: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#183d60',
+    marginBottom: 7,
+    marginTop: 4,
   },
 
   label: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#334155',
-    marginBottom: 6,
-    marginTop: 8,
+    fontWeight: '700',
+    color: '#183d60',
+    marginBottom: 7,
+    marginTop: 4,
   },
 
   input: {
     backgroundColor: '#f8fafc',
     borderWidth: 1,
-    borderColor: '#cbd5e1',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    borderColor: '#cbd9e3',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
     fontSize: 15,
-    color: '#0f172a',
-    width: '100%',
+    color: '#122f4d',
+    marginBottom: 17,
   },
 
-  textArea: {
-    height: 70,
+  multilineInput: {
+    minHeight: 90,
     textAlignVertical: 'top',
   },
 
-  uploadBox: {
-    borderWidth: 1.5,
-    borderColor: '#0284c7',
-    borderStyle: 'dashed',
-    backgroundColor: '#f0f9ff',
-    padding: 14,
-    borderRadius: 8,
+  primaryButton: {
+    backgroundColor: '#7002de',
+    paddingVertical: 14,
+    borderRadius: 10,
     alignItems: 'center',
-    marginVertical: 6,
+    justifyContent: 'center',
+    marginTop: 6,
+    minHeight: 50,
   },
 
-  uploadBoxSuccess: {
-    borderColor: '#16a34a',
-    backgroundColor: '#f0fdf4',
-    borderStyle: 'solid',
+  disabledButton: {
+    backgroundColor: '#94a3b8',
   },
 
-  uploadText: {
+  primaryButtonText: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+
+  switchButton: {
+    marginTop: 20,
+    alignItems: 'center',
+    paddingVertical: 5,
+  },
+
+  switchButtonText: {
+    color: '#087bb5',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+
+  uploadButton: {
+    minHeight: 60,
+    borderWidth: 1,
+    borderColor: '#cbd9e3',
+    borderStyle: 'dashed',
+    borderRadius: 10,
+    backgroundColor: '#f8fafc',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    marginBottom: 17,
+  },
+
+  uploadIcon: {
+    fontSize: 22,
+    color: '#0d9488',
+    marginRight: 12,
+  },
+
+  uploadTextContainer: {
+    flex: 1,
+  },
+
+  uploadTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#183d60',
+  },
+
+  uploadSubtitle: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#0369a1',
-    textAlign: 'center',
+    color: '#698096',
+    marginTop: 3,
   },
 
   switchRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginVertical: 10,
+    borderWidth: 1,
+    borderColor: '#cbd9e3',
+    borderRadius: 10,
+    backgroundColor: '#f8fafc',
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    marginBottom: 17,
+  },
+
+  switchTextContainer: {
+    flex: 1,
+    paddingRight: 12,
   },
 
   switchLabel: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#334155',
-    flex: 1,
-    paddingRight: 10,
+    fontWeight: '700',
+    color: '#183d60',
   },
 
-  primaryButton: {
-    backgroundColor: '#0284c7',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 20,
-    minHeight: 50,
-  },
-
-  buttonPressed: {
-    opacity: 0.7,
-  },
-
-  disabledButton: {
-    opacity: 0.6,
-  },
-
-  primaryButtonText: {
-    color: '#ffffff',
-    fontSize: 15,
-    fontWeight: 'bold',
-    textAlign: 'center',
-  },
-
-  submissionMessage: {
-    marginTop: 14,
-    padding: 14,
-    borderRadius: 8,
-    backgroundColor: '#f0f9ff',
-    borderWidth: 1,
-    borderColor: '#bae6fd',
-    alignItems: 'center',
-  },
-
-  submissionTitle: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    color: '#0369a1',
-    marginBottom: 5,
-  },
-
-  submissionText: {
-    fontSize: 13,
-    color: '#475569',
-    textAlign: 'center',
-    lineHeight: 19,
+  switchDescription: {
+    fontSize: 12,
+    color: '#698096',
+    marginTop: 3,
+    lineHeight: 17,
   },
 });
