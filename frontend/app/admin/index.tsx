@@ -1,17 +1,19 @@
+
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
-
+import { supabase } from '../lib/supabase';
 export default function AshaAuthScreen() {
+  
   const router = useRouter();
   const [isRegistering, setIsRegistering] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -23,31 +25,111 @@ export default function AshaAuthScreen() {
   const [phone, setPhone] = useState('');
   const [subCenter, setSubCenter] = useState('');
 
-  const handleAuthAction = () => {
-    if (!governmentId || !phone || (isRegistering && (!fullName || !subCenter))) {
-      Alert.alert('Missing Details', 'Please fill in all required fields to proceed.');
-      return;
-    }
+const handleAuthAction = async () => {
+  if (!governmentId || !phone || (isRegistering && (!fullName || !subCenter))) {
+    Alert.alert(
+      'Missing Details',
+      'Please fill in all required fields to proceed.'
+    );
+    return;
+  }
 
-    if (isRegistering) {
-      setIsLoading(true);
-      setSuccessMessage('Submitted for verification. Please wait for mail alert...');
+  if (isRegistering) {
+    setIsLoading(true);
+    setSuccessMessage('');
 
-      // 3-second delay simulation before redirecting back to login
-      setTimeout(() => {
-        setIsLoading(false);
-        setSuccessMessage('');
-        setIsRegistering(false); // Switch back to sign-in view
+    try {
+      const { data, error } = await supabase
+        .from('asha_workers')
+        .insert({
+          full_name: fullName,
+          government_id: governmentId,
+          phone: phone,
+          assigned_subcenter: subCenter,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.log('ASHA registration error:', error);
+
         Alert.alert(
-          'Verification Sent',
-          'Your registration details have been dispatched to the District Medical Officer. Check your email for status updates.'
+          'Registration Failed',
+          error.message
         );
-      }, 3000);
-    } else {
-      // Successful Login -> Redirect straight to Dashboard
-      router.replace('/admin/dashboard' as any);
+
+        setIsLoading(false);
+        return;
+      }
+
+      console.log('ASHA worker registered:', data);
+
+      setIsLoading(false);
+      setSuccessMessage('');
+      setIsRegistering(false);
+
+      setGovernmentId('');
+      setPhone('');
+      setFullName('');
+      setSubCenter('');
+
+      Alert.alert(
+        'Registration Successful',
+        'Your registration has been submitted for government verification. You can now sign in.'
+      );
+
+    } catch (error) {
+      console.log('ASHA registration error:', error);
+
+      setIsLoading(false);
+
+      Alert.alert(
+        'Registration Failed',
+        'Could not complete registration.'
+      );
     }
-  };
+
+  } else {
+    try {
+      setIsLoading(true);
+
+      const { data, error } = await supabase
+        .from('asha_workers')
+        .select('*')
+        .eq('government_id', governmentId)
+        .eq('phone', phone)
+        .single();
+
+      if (error || !data) {
+        console.log('ASHA login error:', error);
+
+        Alert.alert(
+          'Login Failed',
+          'Government ID or phone number is incorrect.'
+        );
+
+        setIsLoading(false);
+        return;
+      }
+
+      console.log('ASHA worker logged in:', data);
+
+      setIsLoading(false);
+
+      router.replace(`/admin/dashboard?ashaId=${data.id}` as any);
+
+    } catch (error) {
+      console.log('ASHA login error:', error);
+
+      setIsLoading(false);
+
+      Alert.alert(
+        'Login Failed',
+        'Could not complete login.'
+      );
+    }
+  }
+};
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
