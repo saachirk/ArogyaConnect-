@@ -1,14 +1,14 @@
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-    Alert,
-    Pressable,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
+  Alert,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
-
+import { supabase } from '../lib/supabase';
 export default function PatientAuthScreen() {
   const router = useRouter();
 
@@ -50,39 +50,79 @@ export default function PatientAuthScreen() {
   // -----------------------------
   // VERIFY OTP
   // -----------------------------
-  const handleVerifyOtp = () => {
-    if (otpCode.length !== 4) {
-      Alert.alert(
-        'Invalid OTP',
-        'Please enter a valid 4-digit OTP.'
-      );
-      return;
-    }
+const handleVerifyOtp = async () => {
+  if (otpCode.length !== 4) {
+    Alert.alert(
+      'Invalid OTP',
+      'Please enter any 4-digit OTP.'
+    );
+    return;
+  }
 
-    // Registration has been completed
-    setLoginPhone(phone);
-    setOtpCode('');
-    setRegistrationSuccess(true);
+  const { data, error } = await supabase
+    .from('patients')
+    .insert({
+      name: name,
+      phone: phone,
+      email: email || null,
+      password: password,
+    })
+    .select()
+    .single();
 
-    // Return to the Login UI
-    setAuthMode('login');
-  };
+  if (error) {
+    console.log('Supabase registration error:', error);
+
+    Alert.alert(
+      'Registration Failed',
+      error.message
+    );
+
+    return;
+  }
+
+  console.log('Patient added to Supabase:', data);
+
+  setLoginPhone(phone);
+  setOtpCode('');
+  setRegistrationSuccess(true);
+  setAuthMode('login');
+};
 
   // -----------------------------
   // LOGIN
   // -----------------------------
-  const handleLoginSubmit = () => {
-    if (!loginPhone || !loginPassword) {
-      Alert.alert(
-        'Missing Information',
-        'Please enter your phone number and password.'
-      );
-      return;
-    }
+const handleLoginSubmit = async () => {
+  console.log('LOGIN BUTTON PRESSED');
+  if (!loginPhone || !loginPassword) {
+    Alert.alert(
+      'Missing Information',
+      'Please enter your phone number and password.'
+    );
+    return;
+  }
 
-    // Patient dashboard will be created later
-    router.replace('/patient/dashboard' as any);
-  };
+  const { data, error } = await supabase
+    .from('patients')
+    .select('*')
+    .eq('phone', loginPhone)
+    .eq('password', loginPassword)
+    .single();
+
+  if (error || !data) {
+    console.log('Supabase error:', error);
+
+    Alert.alert(
+      'Login Failed',
+      'Phone number or password is incorrect.'
+    );
+    return;
+  }
+
+  console.log('Logged in patient:', data);
+
+  router.replace(`/patient/dashboard?patientId=${data.id}` as any);
+};
 
   // -----------------------------
   // MAIN UI
