@@ -4,3 +4,21 @@
 
 expo-env.d.ts
 # @end expo-cli
+
+# Environment variables
+.env
+.env.local
+*.env
+
+# Python / SQLite database files
+*.db
+*.sqlite3
+__pycache__/
+venv/
+.venv/
+
+# Node modules & build files
+node_modules/
+.expo/
+dist/
+web-build/

@@ -5,7 +5,7 @@ import { LanguageProvider } from './lib/i18n';
 export default function RootLayout() {
 	return (
 		<LanguageProvider>
-			<Stack />
+			<Stack screenOptions={{ headerShown: false }} />
 		</LanguageProvider>
 	);
 }
