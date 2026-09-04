@@ -13,6 +13,8 @@ import {
   View,
 } from 'react-native';
 import { useLanguage } from '../lib/i18n';
+import { supabase } from '../lib/supabase';
+
 
 export default function DoctorAuthScreen() {
   const router = useRouter();
@@ -96,16 +98,46 @@ export default function DoctorAuthScreen() {
     setIsSubmitting(true);
 
     try {
-      setTimeout(() => {
-        setIsSubmitting(false);
+      const { data, error } = await supabase
+        .from('doctors')
+        .insert({
+          full_name: fullName,
+          specialty: specialty,
+          council_reg_no: councilRegNo,
+          phone: mobileNo,
+          email: email,
+          has_clinic: hasClinic,
+          clinic_details: hasClinic ? clinicDetails : null,
+          is_volunteer: isVolunteer,
+          volunteer_radius: isVolunteer ? volunteerRadius : null,
+          has_legal_history: hasLegalHistory,
+          legal_explanation: hasLegalHistory ? legalExplanation : null,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.log('Doctor registration error:', error);
 
         Alert.alert(
-          'Registration Submitted',
-          'Your registration has been submitted for verification.'
+          'Registration Failed',
+          error.message
         );
 
-        setActiveTab('login');
-      }, 1000);
+        setIsSubmitting(false);
+        return;
+      }
+
+      console.log('Doctor registered:', data);
+
+      setIsSubmitting(false);
+
+      Alert.alert(
+        'Registration Submitted',
+        'Your registration has been submitted for verification.'
+      );
+
+      setActiveTab('login');
     } catch (error) {
       console.log('Doctor registration error:', error);
       setIsSubmitting(false);
@@ -115,6 +147,7 @@ export default function DoctorAuthScreen() {
       );
     }
   };
+
 
   return (
     <ScrollView
