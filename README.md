@@ -1,5 +1,4 @@
 # ArogyaConnect-
-# ArogyaConnect
 
 **An assisted, offline-first digital healthcare platform for rural and underserved communities.**
 
