@@ -15,11 +15,9 @@ import {
 import { supabase } from '../lib/supabase';
 import { useLanguage } from '../lib/i18n';
 import { runOfflineTriage, OfflineTriageResult } from '../lib/offlineTriage';
-
 // TODO: Replace with the assigned/demo ASHA worker's actual phone number
 // before using this in a real triage flow.
 const ASHA_PHONE = '+919483412554';
-
 export default function PatientDashboardScreen() {
   const router = useRouter();
   const [isOnline, setIsOnline] = useState(true);
@@ -633,7 +631,16 @@ export default function PatientDashboardScreen() {
         </View>
 
         <View style={styles.headerActions}>
-
+           {/* VIEW MAP */}
+  <Pressable
+    style={styles.mapButton}
+    onPress={() => router.push('/patient/map' as any)}
+  >
+    <Text style={styles.mapButtonText}>
+      📍 View Map
+    </Text>
+  </Pressable>
+      
           {/* PROFILE BUTTON */}
           <Pressable
             style={styles.profileButton}
@@ -753,7 +760,6 @@ export default function PatientDashboardScreen() {
           </View>
 
         </View>
-
         {/* =========================
             2. REQUEST CONSULTATION
         ========================= */}
@@ -1724,6 +1730,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 14,
   },
+  mapButton: {
+  backgroundColor: '#087bb5',
+  paddingHorizontal: 14,
+  paddingVertical: 9,
+  borderRadius: 6,
+  justifyContent: 'center',
+  alignItems: 'center',
+},
+
+mapButtonText: {
+  color: '#ffffff',
+  fontSize: 13,
+  fontWeight: '800',
+},
 
   profileButton: {
     width: 40,

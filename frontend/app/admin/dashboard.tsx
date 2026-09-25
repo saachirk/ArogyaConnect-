@@ -46,7 +46,6 @@ export default function AshaCompleteDashboard() {
 
   // ASHA Worker Profile State
   const [ashaData, setAshaData] = useState<any>(null);
-  const [adminAccess, setAdminAccess] = useState<'loading' | 'allowed' | 'denied'>('loading');
 
   // Triage Cases State from Supabase
   const [triageCases, setTriageCases] = useState<any[]>([]);
@@ -116,23 +115,6 @@ export default function AshaCompleteDashboard() {
     loadAshaData();
   }, [ashaId]);
 
-  useEffect(() => {
-    if (ashaId) return;
-
-    const verifyAdminAccess = async () => {
-      const { data: sessionData } = await supabase.auth.getSession();
-
-      if (!sessionData.session) {
-        setAdminAccess('denied');
-        return;
-      }
-
-      setAdminAccess('allowed');
-    };
-
-    verifyAdminAccess();
-  }, [ashaId]);
-
   // Reset the Q&A flow whenever the selected case changes, so answers from
   // one patient don't bleed into another.
   useEffect(() => {
@@ -189,25 +171,6 @@ export default function AshaCompleteDashboard() {
   // Now it's safe to bail early — every hook above has already run
   // on every render, so short-circuiting here doesn't change hook count.
   // ============================================================
-  if (!ashaId && adminAccess === 'loading') {
-    return (
-      <View style={styles.loadingView}>
-        <Text>Verifying admin access...</Text>
-      </View>
-    );
-  }
-
-  if (!ashaId && adminAccess === 'denied') {
-    return (
-      <View style={styles.loadingView}>
-        <Text style={styles.errorText}>Your Supabase session is missing or expired.</Text>
-        <Pressable style={styles.primaryButton} onPress={() => router.replace('/admin' as any)}>
-          <Text style={styles.primaryButtonText}>Return to Admin Login</Text>
-        </Pressable>
-      </View>
-    );
-  }
-
   if (ashaId && !ashaData) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
@@ -1028,19 +991,6 @@ ${JSON.stringify(data)}
 }
 
 const styles = StyleSheet.create({
-  loadingView: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 16,
-    padding: 24,
-  },
-
-  errorText: {
-    color: '#b42318',
-    textAlign: 'center',
-  },
-
   emptyText: {
     fontSize: 13,
     color: '#698096',
