@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import * as Location from "expo-location";
+
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://127.0.0.1:8000";
 export default function NearbyFacilitiesMap() {
   const [ready, setReady] = useState(false);
 
@@ -35,6 +37,14 @@ function LeafletMap() {
   const [userLocation, setUserLocation] = useState<[number, number] | null>(
     null
   );
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const openDirections = (facility: any) => {
+    const origin = `${userLocation?.[0]},${userLocation?.[1]}`;
+    const destination = `${facility.latitude},${facility.longitude}`;
+    const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=driving`;
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
 
   useEffect(() => {
     const reactLeaflet = require("react-leaflet");
@@ -75,9 +85,10 @@ function LeafletMap() {
         setUserLocation(fallback);
 
         const response = await fetch(
-          "http://127.0.0.1:8000/api/facilities"
+          `${API_BASE_URL}/api/facilities`
         );
 
+        if (!response.ok) throw new Error(`Facilities API returned ${response.status}`);
         const data = await response.json();
         setFacilities(data);
 
@@ -94,9 +105,10 @@ function LeafletMap() {
       setUserLocation([latitude, longitude]);
 
       const response = await fetch(
-        `http://127.0.0.1:8000/api/facilities?lat=${latitude}&lon=${longitude}`
+        `${API_BASE_URL}/api/facilities?lat=${latitude}&lon=${longitude}`
       );
 
+      if (!response.ok) throw new Error(`Facilities API returned ${response.status}`);
       const data = await response.json();
 
       console.log("FACILITIES WITH DISTANCE:", data);
@@ -104,6 +116,9 @@ function LeafletMap() {
       setFacilities(data);
     } catch (error) {
       console.error("Location/facility error:", error);
+      setErrorMessage(
+        "Nearby centers are unavailable. Start the backend API and try again."
+      );
     }
   };
 
@@ -121,7 +136,7 @@ function LeafletMap() {
           justifyContent: "center",
         }}
       >
-        Getting your location...
+        {errorMessage || "Getting your location..."}
       </div>
     );
   }
@@ -199,6 +214,23 @@ function LeafletMap() {
                   Distance: {facility.distance_km} km
                 </>
               )}
+              <br />
+              <button
+                type="button"
+                onClick={() => openDirections(facility)}
+                style={{
+                  marginTop: 8,
+                  padding: "8px 10px",
+                  border: 0,
+                  borderRadius: 6,
+                  backgroundColor: "#0d9488",
+                  color: "#ffffff",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                Get directions
+              </button>
             </Popup>
           </Marker>
         ))}
@@ -225,6 +257,20 @@ function LeafletMap() {
       >
         Nearest Healthcare Facilities
       </h2>
+
+      {errorMessage && facilities.length === 0 && (
+        <div
+          style={{
+            padding: 14,
+            color: "#9f1239",
+            backgroundColor: "#fff1f2",
+            border: "1px solid #fecdd3",
+            borderRadius: 8,
+          }}
+        >
+          {errorMessage}
+        </div>
+      )}
 
       <div
         style={{
@@ -277,6 +323,22 @@ function LeafletMap() {
               <br />
               Specialists: {facility.specialist_count ?? 0}
             </div>
+            <button
+              type="button"
+              onClick={() => openDirections(facility)}
+              style={{
+                marginTop: 12,
+                padding: "9px 12px",
+                border: 0,
+                borderRadius: 6,
+                backgroundColor: "#0d9488",
+                color: "#ffffff",
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+            >
+              Get directions
+            </button>
           </div>
         ))}
       </div>

@@ -3,12 +3,17 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import NetInfo from "@react-native-community/netinfo";
 import {
   ActivityIndicator,
+  Pressable,
   StyleSheet,
   Text,
   View,
 } from "react-native";
 import MapView, { Marker, Callout } from "react-native-maps";
 import * as Location from "expo-location";
+import * as Linking from "expo-linking";
+
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://127.0.0.1:8000";
+const DEFAULT_LOCATION = { latitude: 12.9716, longitude: 77.5946 };
 
 type Facility = {
   id: number;
@@ -60,6 +65,15 @@ export default function NearbyFacilitiesMap() {
   } | null>(null);
 
   const [loading, setLoading] = useState(true);
+
+  const openDirections = (facility: Facility) => {
+    const origin = `${userLocation?.latitude},${userLocation?.longitude}`;
+    const destination = `${facility.latitude},${facility.longitude}`;
+    const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=driving`;
+    Linking.openURL(url).catch((error) => {
+      console.error("Could not open directions:", error);
+    });
+  };
 
   useEffect(() => {
     getLocationAndFacilities();
@@ -128,6 +142,7 @@ setFacilities(data);
     if (status !== "granted") {
       console.log("Location permission denied");
 
+      setUserLocation(DEFAULT_LOCATION);
       await loadCachedFacilities();
       return;
     }
@@ -156,9 +171,10 @@ setFacilities(data);
     if (isOnline) {
       try {
         const response = await fetch(
-          `http://127.0.0.1:8000/api/facilities?lat=${latitude}&lon=${longitude}`
+          `${API_BASE_URL}/api/facilities?lat=${latitude}&lon=${longitude}`
         );
 
+        if (!response.ok) throw new Error(`Facilities API returned ${response.status}`);
         const data: Facility[] = await response.json();
 
         console.log(
@@ -276,6 +292,14 @@ setFacilities(data);
                     {facility.distance_km} km
                   </Text>
                 )}
+                <Pressable
+                  style={styles.directionsButton}
+                  onPress={() => openDirections(facility)}
+                >
+                  <Text style={styles.directionsButtonText}>
+                    Get directions
+                  </Text>
+                </Pressable>
               </View>
             </Callout>
           </Marker>
@@ -320,5 +344,19 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontSize: 15,
     marginBottom: 4,
+  },
+
+  directionsButton: {
+    marginTop: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    backgroundColor: "#0d9488",
+    alignItems: "center",
+  },
+
+  directionsButtonText: {
+    color: "#ffffff",
+    fontWeight: "700",
   },
 });
