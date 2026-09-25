@@ -1,6 +1,6 @@
 
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -18,8 +18,13 @@ export default function AshaAuthScreen() {
   const router = useRouter();
   const { t } = useLanguage();
   const [isRegistering, setIsRegistering] = useState(false);
+  const [authStep, setAuthStep] = useState<'email' | 'otp'>('email');
   const [isLoading, setIsLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+  const [email, setEmail] = useState('');
+  const [otp, setOtp] = useState('');
+  const [resendCooldown, setResendCooldown] = useState(0);
 
   // Form states
   const [fullName, setFullName] = useState('');
@@ -27,8 +32,16 @@ export default function AshaAuthScreen() {
   const [phone, setPhone] = useState('');
   const [subCenter, setSubCenter] = useState('');
 
+  useEffect(() => {
+    if (resendCooldown === 0) return;
+    const timer = setInterval(() => {
+      setResendCooldown((value) => Math.max(value - 1, 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [resendCooldown]);
+
 const handleAuthAction = async () => {
-  if (!governmentId || !phone || (isRegistering && (!fullName || !subCenter))) {
+  if (isRegistering && (!governmentId || !phone || !fullName || !subCenter)) {
     Alert.alert(
       'Missing Details',
       'Please fill in all required fields to proceed.'
@@ -91,46 +104,100 @@ const handleAuthAction = async () => {
       );
     }
 
-  } else {
+  } else if (authStep === 'email') {
+    const adminEmail = email.trim().toLowerCase();
+    if (!adminEmail) {
+      setErrorMessage('Enter your admin email address.');
+      return;
+    }
+
     try {
       setIsLoading(true);
+      setErrorMessage('');
+      setSuccessMessage('');
+      const { error } = await supabase.auth.signInWithOtp({
+        email: adminEmail,
+        options: { shouldCreateUser: false },
+      });
 
-      const { data, error } = await supabase
-        .from('asha_workers')
-        .select('*')
-        .eq('government_id', governmentId)
-        .eq('phone', phone)
-        .single();
-
-      if (error || !data) {
-        console.log('ASHA login error:', error);
-
-        Alert.alert(
-          'Login Failed',
-          'Government ID or phone number is incorrect.'
-        );
-
-        setIsLoading(false);
+      if (error) {
+        setErrorMessage(error.message || 'Could not send the OTP.');
         return;
       }
 
-      console.log('ASHA worker logged in:', data);
-
+      setEmail(adminEmail);
+      setOtp('');
+      setAuthStep('otp');
+      setSuccessMessage('OTP sent to your email.');
+      setResendCooldown(30);
+    } catch (error) {
+      console.log('Admin OTP request error:', error);
+      setErrorMessage('Network error. Could not send the OTP.');
+    } finally {
       setIsLoading(false);
+    }
+  } else {
+    const verificationEmail = email.trim().toLowerCase();
+    const verificationToken = otp.trim();
 
-      router.replace(`/admin/dashboard?ashaId=${data.id}` as any);
+    if (verificationToken.length !== 6) {
+      setErrorMessage('Enter the 6-digit OTP from your email.');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      setErrorMessage('');
+      const { data, error } = await supabase.auth.verifyOtp({
+        email: verificationEmail,
+        token: verificationToken,
+        type: 'email',
+      });
+
+      if (error) {
+        setOtp('');
+        setErrorMessage(
+          error.code === 'otp_expired'
+            ? 'This OTP has expired or was replaced. Request a new OTP and use the latest code.'
+            : error.message || 'Invalid or expired OTP.'
+        );
+        return;
+      }
+
+      const session = data.session || (await supabase.auth.getSession()).data.session;
+      if (!session) {
+        await supabase.auth.signOut();
+        setErrorMessage('No authenticated session was created. Please request a new OTP.');
+        return;
+      }
+
+      router.replace('/admin/dashboard' as any);
 
     } catch (error) {
       console.log('ASHA login error:', error);
-
+      setErrorMessage('Could not complete login.');
+    } finally {
       setIsLoading(false);
-
-      Alert.alert(
-        'Login Failed',
-        'Could not complete login.'
-      );
     }
   }
+};
+
+const resendOtp = async () => {
+  if (!email || resendCooldown > 0 || isLoading) return;
+  setIsLoading(true);
+  setErrorMessage('');
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: { shouldCreateUser: false },
+  });
+  setIsLoading(false);
+  if (error) {
+    setErrorMessage(error.message || 'Could not resend the OTP.');
+    return;
+  }
+  setOtp('');
+  setSuccessMessage('A new OTP was sent to your email.');
+  setResendCooldown(60);
 };
 
   return (
@@ -153,6 +220,8 @@ const handleAuthAction = async () => {
           </View>
         ) : null}
 
+        {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
+
         {isRegistering && (
           <>
             <Text style={styles.label}>Full Legal Name</Text>
@@ -166,25 +235,61 @@ const handleAuthAction = async () => {
           </>
         )}
 
-        <Text style={styles.label}>Official Government ASHA / Health ID</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="e.g., AS-KA-2026-8891"
-          value={governmentId}
-          onChangeText={setGovernmentId}
-          autoCapitalize="characters"
-          editable={!isLoading}
-        />
+        {isRegistering ? (
+          <>
+            <Text style={styles.label}>Official Government ASHA / Health ID</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g., AS-KA-2026-8891"
+              value={governmentId}
+              onChangeText={setGovernmentId}
+              autoCapitalize="characters"
+              editable={!isLoading}
+            />
 
-        <Text style={styles.label}>Registered Mobile Number</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="10-digit mobile number"
-          keyboardType="phone-pad"
-          value={phone}
-          onChangeText={setPhone}
-          editable={!isLoading}
-        />
+            <Text style={styles.label}>Registered Mobile Number</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="10-digit mobile number"
+              keyboardType="phone-pad"
+              value={phone}
+              onChangeText={setPhone}
+              editable={!isLoading}
+            />
+          </>
+        ) : authStep === 'email' ? (
+          <>
+            <Text style={styles.label}>Admin email address</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="admin@example.com"
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="email-address"
+              editable={!isLoading}
+            />
+          </>
+        ) : (
+          <>
+            <Text style={styles.label}>OTP sent to {email}</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Enter 6-digit OTP"
+              value={otp}
+              onChangeText={(value) => setOtp(value.replace(/\D/g, '').slice(0, 6))}
+              keyboardType="number-pad"
+              maxLength={6}
+              editable={!isLoading}
+            />
+            <Pressable onPress={resendOtp} disabled={isLoading || resendCooldown > 0}>
+              <Text style={[styles.switchButtonText, resendCooldown > 0 && styles.mutedText]}>
+                {resendCooldown > 0 ? `Resend OTP in ${resendCooldown}s` : 'Resend OTP'}
+              </Text>
+            </Pressable>
+          </>
+        )}
 
         {isRegistering && (
           <>
@@ -209,7 +314,7 @@ const handleAuthAction = async () => {
             <ActivityIndicator color="#ffffff" />
           ) : (
             <Text style={styles.primaryButtonText}>
-                {isRegistering ? t('submit') : t('login')}
+                {isRegistering ? t('submit') : authStep === 'email' ? 'Send OTP' : 'Verify OTP'}
             </Text>
           )}
         </Pressable>
@@ -218,12 +323,17 @@ const handleAuthAction = async () => {
         {!isLoading && (
           <Pressable
             style={styles.switchButton}
-            onPress={() => setIsRegistering(!isRegistering)}
+            onPress={() => {
+              setIsRegistering(!isRegistering);
+              setAuthStep('email');
+              setErrorMessage('');
+              setSuccessMessage('');
+            }}
           >
             <Text style={styles.switchButtonText}>
               {isRegistering
                 ? 'Already registered? Sign in here'
-                : 'New ASHA worker? Register with Gov ID'}
+                : 'Use ASHA registration instead'}
             </Text>
           </Pressable>
         )}
@@ -301,6 +411,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
+  errorText: {
+    color: '#b42318',
+    fontSize: 13,
+    lineHeight: 20,
+    marginBottom: 12,
+  },
+
   label: {
     fontSize: 13,
     fontWeight: '700',
@@ -347,5 +464,9 @@ const styles = StyleSheet.create({
     color: '#087bb5',
     fontSize: 14,
     fontWeight: '700',
+  },
+
+  mutedText: {
+    color: '#829ab1',
   },
 });

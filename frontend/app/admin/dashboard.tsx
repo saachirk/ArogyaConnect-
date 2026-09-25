@@ -171,13 +171,19 @@ export default function AshaCompleteDashboard() {
   // Now it's safe to bail early — every hook above has already run
   // on every render, so short-circuiting here doesn't change hook count.
   // ============================================================
-  if (!ashaData) {
+  if (ashaId && !ashaData) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <Text>Loading ASHA profile...</Text>
       </View>
     );
   }
+
+  const dashboardProfile = ashaData || {
+    name: 'Administrator',
+    subCenter: 'Admin Operations',
+    offlinePendingCount: 0,
+  };
 
   // Gemini Clinical Follow-Up Analyzer for Supabase Records
   const testGeminiForCase = async (supabaseCase: any) => {
@@ -570,12 +576,12 @@ ${JSON.stringify(data)}
       <View style={styles.header}>
         <View>
           <Text style={styles.title}>{t('ashaTitle')}</Text>
-          <Text style={styles.subtitle}>Worker: {ashaData.name} | {ashaData.subCenter}</Text>
+          <Text style={styles.subtitle}>Worker: {dashboardProfile.name} | {dashboardProfile.subCenter}</Text>
           <LanguageSelector />
         </View>
         <View style={styles.headerRight}>
           <View style={styles.offlineBadge}>
-            <Text style={styles.offlineText}>⚠ Offline Mode ({ashaData.offlinePendingCount} pending sync)</Text>
+            <Text style={styles.offlineText}>⚠ Offline Mode ({dashboardProfile.offlinePendingCount} pending sync)</Text>
           </View>
           <Pressable onPress={() => router.replace('/' as any)}>
             <Text style={styles.logoutText}>{t('logout')}</Text>
